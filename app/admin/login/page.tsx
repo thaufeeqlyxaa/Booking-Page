@@ -1,114 +1,134 @@
-import { cookies } from 'next/headers';
+'use client';
+
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import {
-  ADMIN_SESSION_COOKIE,
-  createAdminSessionToken,
-  sanitizeAdminNextPath,
-  validateAdminCredentials,
-  verifyAdminSessionToken
-} from '@/lib/admin-auth';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
-type AdminLoginPageProps = {
-  searchParams?: {
-    error?: string;
-    next?: string;
-  };
-};
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f8f8f8]" />}>
+      <LoginFormContainer />
+    </Suspense>
+  );
+}
 
-export default function AdminLoginPage({ searchParams }: AdminLoginPageProps) {
-  const nextPath = sanitizeAdminNextPath(searchParams?.next);
-  const sessionToken = cookies().get(ADMIN_SESSION_COOKIE)?.value;
+function LoginFormContainer() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(searchParams.get('error') === 'invalid');
 
-  if (verifyAdminSessionToken(sessionToken)) {
-    redirect(nextPath);
-  }
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setError(false);
 
-  async function loginAction(formData: FormData) {
-    'use server';
+    const formData = new FormData(event.currentTarget);
+    const username = String(formData.get('username'));
+    const password = String(formData.get('password'));
 
-    const username = String(formData.get('username') || '').trim();
-    const password = String(formData.get('password') || '');
-    const target = sanitizeAdminNextPath(String(formData.get('next') || '/admin'));
+    // Server-side action simulation with fetch to keep it client-side responsive
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (!validateAdminCredentials(username, password)) {
-      redirect(`/admin/login?error=invalid&next=${encodeURIComponent(target)}`);
+      if (res.ok) {
+        router.refresh();
+        router.push(searchParams.get('next') || '/admin');
+      } else {
+        setError(true);
+      }
+    } catch (e) {
+      setError(true);
+    } finally {
+      setLoading(false);
     }
-
-    cookies().set({
-      name: ADMIN_SESSION_COOKIE,
-      value: createAdminSessionToken(),
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 12
-    });
-
-    redirect(target);
-  }
-
-  const showError = searchParams?.error === 'invalid';
+  };
 
   return (
-    <main className="min-h-screen bg-[#efefef] text-ink">
-      <div className="mx-auto flex min-h-screen max-w-6xl items-center px-6 py-10 sm:px-8 lg:px-10">
-        <div className="grid w-full gap-6 lg:grid-cols-[1.1fr_minmax(0,420px)]">
-          <section className="section-card px-6 py-6 sm:px-8 sm:py-8">
-            <p className="text-[11px] uppercase tracking-[0.42em] text-mist">Admin access</p>
-            <h1 className="mt-3 text-[2.7rem] font-semibold tracking-[-0.06em] text-ink">Secure admin login</h1>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink/60">
-              Sign in to manage doctors, services, and the booking content shown to patients.
-            </p>
-
-            <div className="mt-8 rounded-[28px] border border-black/8 bg-white/86 p-5">
-              <p className="text-xs uppercase tracking-[0.28em] text-mist">Protected pages</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {['Overview', 'Doctors', 'Services', 'Submissions'].map((label) => (
-                  <div key={label} className="rounded-[20px] bg-black/[0.03] px-4 py-4 text-sm text-ink/60">
-                    {label}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="section-card px-6 py-6 sm:px-8 sm:py-8">
-            <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.36em] text-mist">Login</p>
-              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-ink">Enter admin credentials</h2>
-              <p className="text-sm text-ink/60">Only the authorized admin user can access these pages.</p>
-            </div>
-
-            {showError ? (
-              <p className="mt-5 rounded-[18px] bg-black/5 px-4 py-3 text-sm text-ink">
-                Incorrect username or password. Please try again.
-              </p>
-            ) : null}
-
-            <form action={loginAction} className="mt-6 space-y-4">
-              <input type="hidden" name="next" value={nextPath} />
-
-              <LoginField label="Username" name="username" placeholder="admin" />
-              <LoginField label="Password" name="password" placeholder="password" type="password" />
-
-              <button
-                type="submit"
-                className="w-full rounded-full bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#181818]"
-              >
-                Sign in
-              </button>
-            </form>
-
-            <Link
-              href="/"
-              className="mt-5 inline-flex items-center rounded-full border border-black/8 bg-white/80 px-4 py-2 text-sm text-ink/62 transition hover:bg-black/5"
-            >
-              Back to booking
-            </Link>
-          </section>
-        </div>
+    <main className="relative flex min-h-screen items-center justify-center bg-[#fcfcfc] px-6 selection:bg-black selection:text-white overflow-hidden">
+      {/* Background Decor */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute top-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-blue-500/5 blur-[120px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] h-[600px] w-[600px] rounded-full bg-ink/5 blur-[120px]" />
       </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 30, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="z-10 w-full max-w-[440px]"
+      >
+        <div className="mb-10 text-center">
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-ink text-white shadow-2xl shadow-black/20">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <h1 className="text-[2.6rem] font-black tracking-[-0.06em] text-ink">Secure Access</h1>
+          <p className="mt-2 text-[0.95rem] font-bold text-ink/30 uppercase tracking-[0.2em]">Lyxaa CRM OS v1.0</p>
+        </div>
+
+        <div className="rounded-[42px] border border-black/[0.04] bg-white/72 p-10 shadow-[0_40px_100px_rgba(0,0,0,0.08)] backdrop-blur-3xl">
+          <div className="mb-8 flex items-center justify-between border-b border-black/[0.05] pb-6">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-ink/25">Environment</p>
+              <p className="text-[0.9rem] font-bold text-ink">Administrator</p>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
+              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <LoginField label="Admin Identity" name="username" placeholder="admin" autofocus />
+            <LoginField label="Access Protocol" name="password" placeholder="password" type="password" />
+
+            <AnimatePresence>
+              {error && (
+                <motion.p 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="rounded-2xl bg-red-500/5 px-4 py-3 text-[0.82rem] font-bold text-red-500"
+                >
+                  Access Denied: Invalid credentials provided.
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`group relative w-full overflow-hidden rounded-full bg-ink py-4 text-[0.85rem] font-black uppercase tracking-[0.2em] text-white transition-all active:scale-[0.98] ${loading ? 'opacity-50' : 'hover:bg-black hover:shadow-2xl hover:shadow-black/20'}`}
+            >
+              {loading ? 'Verifying...' : 'Initialize Session'}
+              {!loading && (
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+              )}
+            </button>
+          </form>
+
+          <Link
+            href="/"
+            className="mt-8 flex items-center justify-center gap-2 text-[0.78rem] font-bold uppercase tracking-widest text-ink/30 transition hover:text-ink"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Public Gateway
+          </Link>
+        </div>
+
+        <div className="mt-12 text-center text-[9px] font-bold uppercase tracking-[0.4em] text-ink/15">
+          © 2026 Lyxaa Digital Instruments. Secure Sandbox.
+        </div>
+      </motion.div>
     </main>
   );
 }
@@ -117,23 +137,28 @@ function LoginField({
   label,
   name,
   placeholder,
-  type = 'text'
+  type = 'text',
+  autofocus = false
 }: {
   label: string;
   name: string;
   placeholder: string;
   type?: string;
+  autofocus?: boolean;
 }) {
   return (
-    <label className="block">
-      <span className="text-xs uppercase tracking-[0.28em] text-mist">{label}</span>
+    <div className="space-y-2">
+      <p className="ml-1 text-[9px] font-black uppercase tracking-[0.25em] text-ink/25">{label}</p>
       <input
         name={name}
         type={type}
         placeholder={placeholder}
+        autoFocus={autofocus}
+        required
         autoComplete={name}
-        className="mt-2 w-full rounded-[20px] border border-black/8 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/30 focus:border-black/20 focus:outline-none"
+        className="h-14 w-full rounded-[20px] bg-black/[0.03] px-5 text-[0.95rem] font-bold text-ink placeholder:text-ink/15 focus:ring-2 focus:ring-ink/5 focus:outline-none transition-all"
       />
-    </label>
+    </div>
   );
 }
+
