@@ -1,9 +1,9 @@
 import { doctors as defaultDoctors, type Doctor } from '@/data/doctors';
 import { services as defaultServices, type Service } from '@/data/services';
 
-const DOCTORS_STORAGE_KEY = 'lyxaa.catalog.doctors';
-const SERVICES_STORAGE_KEY = 'lyxaa.catalog.services';
-const SUBMISSIONS_STORAGE_KEY = 'lyxaa.catalog.submissions';
+const DOCTORS_STORAGE_KEY = 'lyxaa.v2.catalog.doctors';
+const SERVICES_STORAGE_KEY = 'lyxaa.v2.catalog.services';
+const SUBMISSIONS_STORAGE_KEY = 'lyxaa.v2.catalog.submissions';
 
 export type BookingSubmission = {
   id: string;
@@ -24,22 +24,29 @@ export type BookingSubmission = {
 };
 
 function hasStorage() {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  if (typeof window === 'undefined') return false;
+  try {
+    const testKey = '__storage_test__';
+    window.localStorage.setItem(testKey, testKey);
+    window.localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function safeParse<T>(value: string | null): T | null {
   if (!value) return null;
-
   try {
     return JSON.parse(value) as T;
-  } catch {
+  } catch (e) {
+    console.error('Storage parse error:', e);
     return null;
   }
 }
 
 function normalizeDoctor(value: unknown, index: number): Doctor | null {
   if (!value || typeof value !== 'object') return null;
-
   const record = value as Partial<Doctor>;
   const price = typeof record.price === 'number' ? record.price : Number(record.price ?? 0);
   const topics = Array.isArray(record.topics)
@@ -56,10 +63,7 @@ function normalizeDoctor(value: unknown, index: number): Doctor | null {
     specialty: record.specialty.trim(),
     experience: record.experience.trim(),
     bio: record.bio.trim(),
-    image:
-      typeof record.image === 'string' && record.image.trim()
-        ? record.image.trim()
-        : '/images/doctors/doctor-1.svg',
+    image: typeof record.image === 'string' && record.image.trim() ? record.image.trim() : '/images/doctors/doctor-1.svg',
     hours: record.hours.trim(),
     topics,
     slot: record.slot.trim(),
@@ -69,7 +73,6 @@ function normalizeDoctor(value: unknown, index: number): Doctor | null {
 
 function normalizeService(value: unknown, index: number): Service | null {
   if (!value || typeof value !== 'object') return null;
-
   const record = value as Partial<Service>;
   const price = typeof record.price === 'number' ? record.price : Number(record.price ?? 0);
 
@@ -89,24 +92,13 @@ function normalizeService(value: unknown, index: number): Service | null {
 
 function normalizeBookingSubmission(value: unknown, index: number): BookingSubmission | null {
   if (!value || typeof value !== 'object') return null;
-
   const record = value as Partial<BookingSubmission>;
   const deliveryMode =
     record.deliveryMode === 'emailjs' || record.deliveryMode === 'formsubmit' || record.deliveryMode === 'mailto'
       ? record.deliveryMode
       : 'mailto';
 
-  if (
-    !record.createdAt ||
-    !record.doctorName ||
-    !record.doctorSpecialty ||
-    !record.serviceName ||
-    !record.serviceDuration ||
-    !record.patientName ||
-    !record.phone ||
-    !record.email ||
-    !record.age
-  ) {
+  if (!record.createdAt || !record.doctorName || !record.patientName || !record.phone || !record.email || !record.age) {
     return null;
   }
 
@@ -115,10 +107,10 @@ function normalizeBookingSubmission(value: unknown, index: number): BookingSubmi
     createdAt: record.createdAt,
     doctorId: typeof record.doctorId === 'string' ? record.doctorId : '',
     doctorName: record.doctorName.trim(),
-    doctorSpecialty: record.doctorSpecialty.trim(),
+    doctorSpecialty: typeof record.doctorSpecialty === 'string' ? record.doctorSpecialty.trim() : '',
     serviceId: typeof record.serviceId === 'string' ? record.serviceId : '',
-    serviceName: record.serviceName.trim(),
-    serviceDuration: record.serviceDuration.trim(),
+    serviceName: typeof record.serviceName === 'string' ? record.serviceName.trim() : '',
+    serviceDuration: typeof record.serviceDuration === 'string' ? record.serviceDuration.trim() : '',
     patientName: record.patientName.trim(),
     phone: record.phone.trim(),
     email: record.email.trim(),
@@ -129,45 +121,52 @@ function normalizeBookingSubmission(value: unknown, index: number): BookingSubmi
   };
 }
 
+// Helper to ensure storage is seeded if empty
+function initializeStorageFallback<T>(key: string, defaults: T[]): T[] {
+  if (!hasStorage()) return defaults;
+  const existing = window.localStorage.getItem(key);
+  if (!existing) {
+    window.localStorage.setItem(key, JSON.stringify(defaults));
+    return defaults;
+  }
+  const parsed = safeParse<T[]>(existing);
+  return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaults;
+}
+
 export function getStoredDoctors(): Doctor[] {
-  if (!hasStorage()) return defaultDoctors;
-
-  const parsed = safeParse<unknown[]>(window.localStorage.getItem(DOCTORS_STORAGE_KEY));
-  if (!Array.isArray(parsed)) return defaultDoctors;
-
-  const normalized = parsed
+  const data = initializeStorageFallback(DOCTORS_STORAGE_KEY, defaultDoctors);
+  return data
     .map((item, index) => normalizeDoctor(item, index))
     .filter((item): item is Doctor => Boolean(item));
-
-  return normalized;
 }
 
 export function saveStoredDoctors(nextDoctors: Doctor[]) {
   if (!hasStorage()) return;
-  window.localStorage.setItem(DOCTORS_STORAGE_KEY, JSON.stringify(nextDoctors));
+  try {
+    window.localStorage.setItem(DOCTORS_STORAGE_KEY, JSON.stringify(nextDoctors));
+  } catch (e) {
+    console.error('Failed to save doctors:', e);
+  }
 }
 
 export function getStoredServices(): Service[] {
-  if (!hasStorage()) return defaultServices;
-
-  const parsed = safeParse<unknown[]>(window.localStorage.getItem(SERVICES_STORAGE_KEY));
-  if (!Array.isArray(parsed)) return defaultServices;
-
-  const normalized = parsed
+  const data = initializeStorageFallback(SERVICES_STORAGE_KEY, defaultServices);
+  return data
     .map((item, index) => normalizeService(item, index))
     .filter((item): item is Service => Boolean(item));
-
-  return normalized;
 }
 
 export function saveStoredServices(nextServices: Service[]) {
   if (!hasStorage()) return;
-  window.localStorage.setItem(SERVICES_STORAGE_KEY, JSON.stringify(nextServices));
+  try {
+    window.localStorage.setItem(SERVICES_STORAGE_KEY, JSON.stringify(nextServices));
+  } catch (e) {
+    console.error('Failed to save services:', e);
+  }
 }
 
 export function getStoredBookingSubmissions(): BookingSubmission[] {
   if (!hasStorage()) return [];
-
   const parsed = safeParse<unknown[]>(window.localStorage.getItem(SUBMISSIONS_STORAGE_KEY));
   if (!Array.isArray(parsed)) return [];
 
@@ -179,11 +178,21 @@ export function getStoredBookingSubmissions(): BookingSubmission[] {
 
 export function saveStoredBookingSubmissions(nextSubmissions: BookingSubmission[]) {
   if (!hasStorage()) return;
-  window.localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(nextSubmissions));
+  try {
+    window.localStorage.setItem(SUBMISSIONS_STORAGE_KEY, JSON.stringify(nextSubmissions));
+  } catch (e) {
+    console.error('Failed to save submissions:', e);
+  }
 }
 
 export function appendStoredBookingSubmission(submission: BookingSubmission) {
   const nextSubmissions = [submission, ...getStoredBookingSubmissions()];
+  saveStoredBookingSubmissions(nextSubmissions);
+  return nextSubmissions;
+}
+
+export function updateStoredBookingSubmission(updated: BookingSubmission) {
+  const nextSubmissions = getStoredBookingSubmissions().map((item) => (item.id === updated.id ? updated : item));
   saveStoredBookingSubmissions(nextSubmissions);
   return nextSubmissions;
 }

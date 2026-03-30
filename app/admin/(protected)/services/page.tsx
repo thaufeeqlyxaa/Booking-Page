@@ -1,35 +1,27 @@
 'use client';
 
-import { FormEvent, type InputHTMLAttributes, useEffect, useMemo, useState } from 'react';
+import { FormEvent, type InputHTMLAttributes, useEffect, useState } from 'react';
 import { services as defaultServices, type Service } from '@/data/services';
 import { getStoredServices, saveStoredServices } from '@/lib/catalog-storage';
 
 type ServiceFormState = {
   name: string;
-  duration: string;
   description: string;
+  duration: string;
   focus: string;
   price: string;
 };
 
 const initialServiceForm: ServiceFormState = {
   name: '',
-  duration: '',
   description: '',
+  duration: '',
   focus: '',
   price: ''
 };
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 export default function AdminServicesPage() {
-  const [serviceList, setServiceList] = useState<Service[]>(defaultServices);
+  const [serviceList, setServiceList] = useState<Service[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [form, setForm] = useState<ServiceFormState>(initialServiceForm);
@@ -40,7 +32,6 @@ export default function AdminServicesPage() {
     setServiceList(getStoredServices());
   }, []);
 
-  const nextCount = useMemo(() => serviceList.length + 1, [serviceList.length]);
   const isEditing = editingServiceId !== null;
 
   const updateField = (field: keyof ServiceFormState, value: string) => {
@@ -49,23 +40,18 @@ export default function AdminServicesPage() {
     setSuccess(null);
   };
 
-  const resetForm = () => {
+  const openCreateForm = () => {
     setForm(initialServiceForm);
     setEditingServiceId(null);
-    setError(null);
-  };
-
-  const openCreateForm = () => {
-    resetForm();
-    setSuccess(null);
     setShowForm(true);
+    setSuccess(null);
   };
 
   const openEditForm = (service: Service) => {
     setForm({
       name: service.name,
-      duration: service.duration,
       description: service.description,
+      duration: service.duration,
       focus: service.focus,
       price: String(service.price)
     });
@@ -78,56 +64,46 @@ export default function AdminServicesPage() {
   const closeForm = () => {
     setShowForm(false);
     setSuccess(null);
-    resetForm();
+    setForm(initialServiceForm);
+    setEditingServiceId(null);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const price = Number(form.price);
-    if (
-      !form.name.trim() ||
-      !form.duration.trim() ||
-      !form.description.trim() ||
-      !form.focus.trim() ||
-      !form.price.trim()
-    ) {
-      setError('Add all required service details before saving.');
+    if (!form.name.trim() || !form.description.trim() || !form.duration.trim() || !form.focus.trim() || !form.price.trim()) {
+      setError('Required: Complete all clinical service protocol fields.');
       return;
     }
 
     if (Number.isNaN(price) || price <= 0) {
-      setError('Enter a valid service price.');
+      setError('Required: Valid service fee.');
       return;
     }
 
     const nextService: Service = {
-      id:
-        editingServiceId ??
-        `${slugify(form.name) || `service-${nextCount}`}-${Date.now().toString(36)}`,
+      id: editingServiceId ?? `srv-${Date.now().toString(36)}`,
       name: form.name.trim(),
-      duration: form.duration.trim(),
       description: form.description.trim(),
+      duration: form.duration.trim(),
       focus: form.focus.trim(),
       price
     };
 
     const nextServices = isEditing
-      ? serviceList.map((service) => (service.id === editingServiceId ? nextService : service))
+      ? serviceList.map((s) => (s.id === editingServiceId ? nextService : s))
       : [nextService, ...serviceList];
 
     try {
       saveStoredServices(nextServices);
       setServiceList(nextServices);
-      setSuccess(
-        isEditing
-          ? 'Service updated. The booking page now shows the latest option.'
-          : 'Service saved. It now appears in the booking flow.'
-      );
+      setSuccess(isEditing ? 'Service catalog updated.' : 'New service initialized.');
       setShowForm(false);
-      resetForm();
+      setForm(initialServiceForm);
+      setEditingServiceId(null);
     } catch {
-      setError('Saving failed. Please try again.');
+      setError('Persistence failed.');
     }
   };
 
@@ -135,207 +111,150 @@ export default function AdminServicesPage() {
     const service = serviceList.find((item) => item.id === serviceId);
     if (!service) return;
 
-    const confirmed = window.confirm(`Delete ${service.name} from the booking page?`);
+    const confirmed = window.confirm(`Permanently remove ${service.name} from catalog?`);
     if (!confirmed) return;
 
     const nextServices = serviceList.filter((item) => item.id !== serviceId);
-
     try {
       saveStoredServices(nextServices);
       setServiceList(nextServices);
-
-      if (editingServiceId === serviceId) {
-        closeForm();
-      }
-
+      if (editingServiceId === serviceId) closeForm();
       setSuccess('Service removed.');
       setError(null);
     } catch {
-      setError('Delete failed. Please try again.');
+      setError('Operation failed.');
     }
   };
 
   return (
-    <section className="space-y-4">
-      <div className="section-card px-6 py-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <section className="space-y-8 pb-32">
+      {/* Dynamic Header */}
+      <div className="rounded-[40px] border border-black/[0.04] bg-white/70 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.02)] backdrop-blur-3xl">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.36em] text-mist">Services</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-ink">Service Management</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/60">
-              Add, edit, and delete the services patients can choose during booking, including duration, focus, and price.
+            <div className="flex items-center gap-3">
+              <span className="h-1.5 w-1.5 rounded-full bg-ink/20" />
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-ink/30">Catalog Management</p>
+            </div>
+            <h1 className="mt-3 text-[2.4rem] font-black tracking-[-0.06em] text-ink">Treatment Modalities</h1>
+            <p className="mt-2 max-w-xl text-[0.92rem] font-medium leading-relaxed text-ink/45">
+              Refine your therapeutic offering. Adjust durations, focal areas, and pricing models.
             </p>
           </div>
 
           <button
-            type="button"
             onClick={() => (showForm ? closeForm() : openCreateForm())}
-            className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#181818]"
+            className={`shrink-0 flex items-center gap-2 rounded-full px-8 py-4 text-[0.85rem] font-bold uppercase tracking-widest transition-all duration-300 ${
+              showForm ? 'bg-black/5 text-ink hover:bg-black/10' : 'bg-ink text-white shadow-xl shadow-black/10 hover:bg-black'
+            }`}
           >
-            {showForm ? 'Close Form' : 'Add Service'}
+            {showForm ? 'Cancel Operation' : '+ Add Modality'}
           </button>
         </div>
 
-        {showForm ? (
-          <form onSubmit={handleSubmit} className="mt-6 grid gap-4 border-t border-black/6 pt-6 md:grid-cols-2">
-            <AdminField
-              label="Service name"
-              value={form.name}
-              onChange={(value) => updateField('name', value)}
-              placeholder="Mindful Clarity"
-              required
-            />
-            <AdminField
-              label="Duration"
-              value={form.duration}
-              onChange={(value) => updateField('duration', value)}
-              placeholder="35 min"
-              required
-            />
-            <AdminField
-              label="Focus"
-              value={form.focus}
-              onChange={(value) => updateField('focus', value)}
-              placeholder="Stress + Resilience"
-              required
-            />
-            <AdminField
-              label="Price"
-              value={form.price}
-              onChange={(value) => updateField('price', value)}
-              placeholder="1000"
-              inputMode="numeric"
-              required
-            />
-            <div className="md:col-span-2">
-              <AdminField
-                label="Description"
-                value={form.description}
-                onChange={(value) => updateField('description', value)}
-                placeholder="Short description shown on the booking page."
-                multiline
-                required
-              />
-            </div>
-
-            {error ? <p className="md:col-span-2 text-sm text-ink/60">{error}</p> : null}
-
-            <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-2">
-              <p className="text-sm text-ink/55">Changes update the booking page immediately.</p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="rounded-full border border-black/8 px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-black/5"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#181818]"
-                >
-                  {isEditing ? 'Update Service' : 'Save Service'}
+        {showForm && (
+          <div className="mt-8 border-t border-black/[0.05] pt-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                <Input label="Protocol name" value={form.name} onChange={v => updateField('name', v)} placeholder="Clinical Assessment" />
+                <Input label="Session Duration" value={form.duration} onChange={v => updateField('duration', v)} placeholder="45 minutes" />
+                <Input label="Session Price" value={form.price} onChange={v => updateField('price', v)} placeholder="1000" inputMode="numeric" />
+              </div>
+              <Input label="Treatment Focus" value={form.focus} onChange={v => updateField('focus', v)} placeholder="Cognitive Diagnostics" />
+              <Textarea label="Modality Description" value={form.description} onChange={v => updateField('description', v)} placeholder="Detailed overview of the therapeutic protocol." />
+              
+              <div className="flex items-center justify-between border-t border-black/[0.05] pt-6">
+                {error && <p className="text-sm font-bold text-red-500 mr-4">{error}</p>}
+                {!error && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ink/20">All metadata required</p>}
+                <button type="submit" className="rounded-full bg-ink px-10 py-4 text-[0.85rem] font-black uppercase tracking-widest text-white shadow-xl shadow-black/10 transition-all hover:bg-black">
+                  {isEditing ? 'Commit Changes' : 'Initialize Modality'}
                 </button>
               </div>
-            </div>
-          </form>
-        ) : null}
-
-        {success ? <p className="mt-4 text-sm text-ink/60">{success}</p> : null}
+            </form>
+          </div>
+        )}
       </div>
 
-      <div className="section-card overflow-hidden">
-        <div className="border-b border-black/6 px-6 py-4 text-sm text-ink/55">
-          {serviceList.length} service options currently available in the booking flow.
-        </div>
+      {success && <p className="ml-4 text-sm font-bold text-emerald-600">{success}</p>}
 
-        {serviceList.length === 0 ? (
-          <div className="px-6 py-10 text-sm text-ink/55">No services available yet. Add a service to publish it to the booking page.</div>
-        ) : null}
-
-        {serviceList.map((service, index) => (
-          <div
-            key={service.id}
-            className={`px-6 py-5 ${index < serviceList.length - 1 ? 'border-b border-black/6' : ''}`}
-          >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-1.5">
-                <h3 className="text-lg font-semibold tracking-[-0.03em] text-ink">{service.name}</h3>
-                <p className="max-w-2xl text-sm leading-relaxed text-ink/58">{service.description}</p>
-                <p className="text-sm text-ink/55">{service.focus}</p>
+      {/* Services List Display */}
+      <div className="grid gap-6 md:grid-cols-2 xlg:grid-cols-3">
+        {serviceList.map((service) => (
+          <article key={service.id} className="group relative flex flex-col rounded-[40px] border border-black/[0.04] bg-white/70 p-8 shadow-[0_2px_12px_rgba(0,0,0,0.02)] backdrop-blur-3xl transition-all duration-500 hover:border-black/[0.1] hover:shadow-[0_30px_70px_rgba(0,0,0,0.08)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-ink/20 mb-2">{service.duration}</p>
+                <h3 className="text-[1.4rem] font-bold tracking-[-0.03em] text-ink leading-tight">{service.name}</h3>
+                <p className="mt-2 text-[0.8rem] font-bold text-ink/40 uppercase tracking-widest">{service.focus}</p>
               </div>
 
-              <div className="space-y-3 lg:text-right">
-                <div className="space-y-1 text-sm text-ink/55">
-                  <p>{service.duration}</p>
-                  <p className="font-medium text-ink">Rs. {service.price}</p>
-                </div>
-
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => openEditForm(service)}
-                    className="rounded-full border border-black/8 px-4 py-2 text-sm font-semibold text-ink transition hover:bg-black/5"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(service.id)}
-                    className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#181818]"
-                  >
-                    Delete
-                  </button>
-                </div>
+              <div className="flex flex-col gap-1 opacity-10 transition-opacity duration-300 group-hover:opacity-100">
+                <IconButton onClick={() => openEditForm(service)} icon={<EditIcon />} />
+                <IconButton onClick={() => handleDelete(service.id)} icon={<DeleteIcon />} isDestructive />
               </div>
             </div>
-          </div>
+
+            <div className="mt-6">
+              <p className="text-[0.92rem] leading-relaxed text-ink/50 py-4 border-y border-black/[0.03]">{service.description}</p>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-ink/10" />
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-ink/30">Active Protocol</p>
+              </div>
+              <p className="text-[1.3rem] font-black tracking-[-0.05em] text-ink">₹ {service.price}</p>
+            </div>
+          </article>
         ))}
       </div>
     </section>
   );
 }
 
-function AdminField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  multiline,
-  required,
-  inputMode
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  multiline?: boolean;
-  required?: boolean;
-  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'];
-}) {
+/* Internal Components */
+function Input({ label, value, onChange, placeholder, inputMode }: { label: string, value: string, onChange: (v: string) => void, placeholder: string, inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'] }) {
   return (
     <div>
-      <label className="text-xs uppercase tracking-[0.28em] text-mist">
-        {label}
-        {required ? ' *' : ''}
-      </label>
-      {multiline ? (
-        <textarea
-          rows={4}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          className="mt-2 w-full rounded-[20px] border border-black/8 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/30 focus:border-black/20 focus:outline-none"
-        />
-      ) : (
-        <input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          inputMode={inputMode}
-          className="mt-2 w-full rounded-[20px] border border-black/8 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/30 focus:border-black/20 focus:outline-none"
-        />
-      )}
+      <p className="text-[9px] font-black uppercase tracking-[0.25em] text-ink/25 mb-2 ml-1">{label}</p>
+      <input 
+        value={value} 
+        onChange={e => onChange(e.target.value)} 
+        placeholder={placeholder}
+        inputMode={inputMode}
+        className="w-full h-12 bg-black/[0.03] border-none rounded-[18px] px-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-ink/5" 
+      />
     </div>
   );
+}
+
+function Textarea({ label, value, onChange, placeholder }: { label: string, value: string, onChange: (v: string) => void, placeholder: string }) {
+  return (
+    <div>
+      <p className="text-[9px] font-black uppercase tracking-[0.25em] text-ink/25 mb-2 ml-1">{label}</p>
+      <textarea 
+        rows={4}
+        value={value} 
+        onChange={e => onChange(e.target.value)} 
+        placeholder={placeholder}
+        className="w-full bg-black/[0.03] border-none rounded-[22px] px-4 py-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-ink/5" 
+      />
+    </div>
+  );
+}
+
+function IconButton({ onClick, icon, isDestructive }: { onClick: () => void, icon: React.ReactNode, isDestructive?: boolean }) {
+  return (
+    <button onClick={onClick} className={`h-10 w-10 flex items-center justify-center rounded-full transition-all ${isDestructive ? 'hover:bg-red-500/10 text-red-500' : 'hover:bg-black/5 text-ink/30 hover:text-ink'}`}>
+      {icon}
+    </button>
+  );
+}
+
+function EditIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>;
+}
+
+function DeleteIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>;
 }
