@@ -1,0 +1,12 @@
+<svg width="240" height="280" viewBox="0 0 240 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="doctorOneBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F5E7DA" />
+      <stop offset="100%" stop-color="#F9F4EE" />
+    </linearGradient>
+  </defs>
+  <rect width="240" height="280" rx="40" fill="url(#doctorOneBg)" />
+  <circle cx="120" cy="104" r="42" fill="#4B6258" />
+  <path d="M60 234C60 191 86 162 120 162C154 162 180 191 180 234V246H60V234Z" fill="#4B6258" />
+  <path d="M87 156H153L168 182L120 204L72 182L87 156Z" fill="#F7EFE5" />
+</svg>
