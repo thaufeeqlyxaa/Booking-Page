@@ -191,13 +191,19 @@ export default function Home() {
       setDeliveryMode(result.mode);
 
       setSubmitState('idle');
-      setStep('success');
+
+      if (result.mode === 'mailto') {
+        setSubmitError('Primary email service not configured. Opening your email app to finish booking...');
+        setTimeout(() => setSubmitError(null), 8000);
+      } else {
+        setStep('success');
+      }
     } catch (error: any) {
-      console.error('Submission error details:', error);
+      console.error('Submission final level error:', error);
       setSubmitState('error');
       
-      const errorMessage = error?.message || (typeof error === 'string' ? error : 'Failed to send booking request.');
-      setSubmitError(errorMessage);
+      const details = error?.message || (typeof error === 'string' ? error : 'Failed to send booking request.');
+      setSubmitError(`${details} (Please try again or contact support).`);
     }
   };
 
