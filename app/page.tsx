@@ -147,6 +147,13 @@ export default function Home() {
     setSubmitError(null);
 
     try {
+      console.log('Sending booking email with payload:', {
+        service: selectedService.name,
+        doctor: activeDoctor.name,
+        name: details.name.trim(),
+        phone: details.phone.trim()
+      });
+
       const result = await sendBookingEmail({
         service: selectedService.name,
         doctor: activeDoctor.name,
@@ -156,6 +163,8 @@ export default function Home() {
         age: details.age.trim(),
         notes: details.notes.trim() || 'None provided'
       });
+
+      console.log('Booking email sent successfully:', result);
 
       try {
         appendStoredBookingSubmission({
@@ -183,9 +192,12 @@ export default function Home() {
 
       setSubmitState('idle');
       setStep('success');
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Submission error details:', error);
       setSubmitState('error');
-      setSubmitError(error instanceof Error ? error.message : 'Failed to send booking request.');
+      
+      const errorMessage = error?.message || (typeof error === 'string' ? error : 'Failed to send booking request.');
+      setSubmitError(errorMessage);
     }
   };
 
