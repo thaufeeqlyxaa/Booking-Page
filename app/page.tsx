@@ -138,6 +138,7 @@ export default function Home() {
 
   const submitBooking = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitState === 'loading') return;
     if (!activeDoctor || !selectedService) return;
 
     setShowErrors(true);
@@ -212,10 +213,7 @@ export default function Home() {
       <header className="relative z-10 border-b border-black/6 bg-white/72 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8 lg:px-10">
           <div className="flex items-center">
-            <img src="/logo.svg" alt="Lyxaa" className="h-14 object-contain" />
-          </div>
-          <div className="rounded-full border border-black/8 bg-white/80 px-4 py-2 text-xs font-semibold tracking-wide text-ink/60">
-            Minimal booking flow
+            <img src="/logo.svg" alt="Lyxaa" className="h-9 object-contain" />
           </div>
         </div>
       </header>
@@ -515,32 +513,6 @@ const doctorCardMotion = {
   }
 };
 
-function BackgroundOrbits() {
-  return (
-    <div className="dna-shell" aria-hidden="true">
-      <div className="dna-strand left-[-40px] top-[100px]">
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-      </div>
-      <div className="dna-strand bottom-[-30px] right-[-20px]">
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-      </div>
-    </div>
-  );
-}
 
 function StepIndicator({ current }: { current: BookingStep }) {
   const currentIndex = ['service', 'details', 'review', 'success'].indexOf(current);
@@ -603,12 +575,6 @@ function DoctorCardRedesigned({
           }`}
         />
         
-        {/* Floating Profile Badge - Updated to use icon-like circle */}
-        <div className="absolute right-4 top-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/40 shadow-sm backdrop-blur-md transition-colors hover:bg-white/60">
-            <UserIconSmall />
-          </div>
-        </div>
       </div>
 
       <div className="flex flex-col px-3 pt-5 pb-2">
@@ -641,14 +607,6 @@ function DoctorCardRedesigned({
   );
 }
 
-function UserIconSmall() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
 
 function DoctorPreviewModal({
   doctor,
@@ -717,7 +675,6 @@ function DoctorPreviewModal({
               <MetricBlock label="Experience" value={doctor.experience} />
               <MetricBlock label="Session Fee" value={`₹ ${doctor.price}`} />
               <MetricBlock label="Languages" value={doctor.languages} />
-              <MetricBlock label="Availability" value={doctor.hours} />
             </div>
 
             <div className="space-y-4">
@@ -807,14 +764,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ProfileMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-b border-black/6 pb-3">
-      <dt className="text-[11px] uppercase tracking-[0.28em] text-mist">{label}</dt>
-      <dd className="mt-2 text-sm font-medium text-ink">{value}</dd>
-    </div>
-  );
-}
 
 function InlineNotice({ children }: { children: ReactNode }) {
   return <p className="rounded-[18px] bg-black/5 px-4 py-3 text-sm text-ink">{children}</p>;
@@ -829,18 +778,6 @@ function SearchIcon() {
   );
 }
 
-function EyeIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M2.4 12C4.3 8.7 7.6 6.5 12 6.5S19.7 8.7 21.6 12C19.7 15.3 16.4 17.5 12 17.5S4.3 15.3 2.4 12Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-    </svg>
-  );
-}
 
 function MetricBlock({ label, value }: { label: string; value: string }) {
   return (
