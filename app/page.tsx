@@ -194,7 +194,7 @@ export default function Home() {
       <header className="relative z-10 border-b border-black/6 bg-white/72 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8 lg:px-10">
           <div className="flex items-center">
-            <img src="/logo.svg" alt="Lyxaa" className="h-10 object-contain" />
+            <img src="/logo.svg" alt="Lyxaa" className="h-14 object-contain" />
           </div>
           <div className="rounded-full border border-black/8 bg-white/80 px-4 py-2 text-xs font-semibold tracking-wide text-ink/60">
             Minimal booking flow
@@ -205,14 +205,14 @@ export default function Home() {
       <section className="relative z-10 mx-auto max-w-7xl px-6 py-8 sm:px-8 sm:py-9 lg:px-10">
         <AnimatePresence mode="wait">
           {!activeDoctor ? (
-            <motion.div key="directory" {...panelMotion} transition={{ duration: 0.28 }} className="space-y-7">
-              <div className="max-w-3xl space-y-2.5">
-                <p className="text-[11px] uppercase tracking-[0.42em] text-mist">Directory</p>
-                <h1 className="text-3xl font-semibold tracking-[-0.06em] text-ink md:text-4xl lg:text-[2.7rem]">
-                  Choose your doctor first
+            <motion.div key="directory" {...panelMotion} transition={{ duration: 0.28 }} className="space-y-10">
+              <div className="max-w-xl space-y-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-mist">Provider Directory</p>
+                <h1 className="text-4xl font-black tracking-[-0.05em] text-ink sm:text-5xl">
+                  Connect with your specialist.
                 </h1>
-                <p className="text-sm leading-relaxed text-ink/62">
-                  Browse profiles, open the eye view for full doctor details, and then move through service, details, review, and submit.
+                <p className="text-sm font-medium leading-relaxed text-ink/40">
+                  Select a provider below to view qualifications, clinical focus, and session availability. 
                 </p>
               </div>
 
@@ -572,12 +572,11 @@ function DoctorCardRedesigned({
     <motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5, transition: { duration: 0.2 } }}
-      className="group relative flex flex-col overflow-hidden rounded-[40px] bg-white p-4 shadow-[0_10px_40px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.03] transition-all hover:shadow-[0_20px_60px_rgba(0,0,0,0.08)]"
+      className="group relative flex flex-col overflow-hidden rounded-[32px] bg-white p-2.5 shadow-[0_2px_18px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.03] transition-all hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)]"
       onClick={onPreview}
     >
       {/* Top Image Container - Modern Profile Look */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[32px] bg-[#f9f9f9]">
+      <div className="relative aspect-[4/4.8] w-full overflow-hidden rounded-[26px] bg-[#f7f7f9]">
         <img
           src={doctor.image}
           alt={doctor.name}
@@ -594,18 +593,18 @@ function DoctorCardRedesigned({
         </div>
       </div>
 
-      <div className="flex flex-col pt-5 pb-3">
-        <h3 className="text-lg font-bold tracking-tight text-ink">{doctor.name}</h3>
-        <p className="mt-0.5 text-[13px] font-medium text-ink/40">{doctor.specialty}</p>
+      <div className="flex flex-col px-3 pt-5 pb-2">
+        <h3 className="text-lg font-extrabold tracking-tight text-ink leading-tight">{doctor.name}</h3>
+        <p className="mt-0.5 text-xs font-bold text-ink/35">{doctor.specialty}</p>
 
-        <div className="mt-4 grid grid-cols-2 gap-px border-t border-black/[0.04] pt-4">
-          <div className="pr-4">
-             <p className="text-[9px] font-black uppercase tracking-widest text-ink/20">Experience</p>
-             <p className="mt-0.5 text-xs font-bold text-ink/65">{doctor.experience}</p>
+        <div className="mt-4 flex items-center justify-between border-t border-black/[0.03] pt-4">
+          <div>
+             <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Experience</p>
+             <p className="mt-0.5 text-[12px] font-black text-ink/65">{doctor.experience}</p>
           </div>
-          <div className="border-l border-black/[0.04] pl-4">
-             <p className="text-[9px] font-black uppercase tracking-widest text-ink/20">Session Fee</p>
-             <p className="mt-0.5 text-xs font-bold text-ink/65">₹{doctor.price}</p>
+          <div className="text-right">
+             <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Session</p>
+             <p className="mt-0.5 text-[12px] font-black text-ink/65">₹{doctor.price}</p>
           </div>
         </div>
 
@@ -615,9 +614,9 @@ function DoctorCardRedesigned({
             e.stopPropagation();
             onBook();
           }}
-          className="mt-5 w-full rounded-2xl bg-black px-6 py-3.5 text-xs font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-[#181818] active:scale-95"
+          className="mt-5 w-full rounded-2xl bg-black py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:scale-[0.98] active:scale-95"
         >
-          Book Appointment
+          Book Now
         </button>
       </div>
     </motion.article>
@@ -669,7 +668,7 @@ function DoctorPreviewModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={modalExit}
         transition={motionTransition}
-        className="relative w-full max-w-[520px] overflow-hidden rounded-[42px] border border-black/[0.08] bg-white/92 shadow-[0_50px_120px_rgba(0,0,0,0.22)] backdrop-blur-3xl"
+        className="relative w-full max-w-[650px] max-h-[90vh] overflow-hidden rounded-[42px] border border-black/[0.04] bg-white shadow-[0_50px_120px_rgba(0,0,0,0.22)] flex flex-col sm:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -679,48 +678,48 @@ function DoctorPreviewModal({
           <CloseIcon />
         </button>
 
-        <div className="relative h-[280px] w-full overflow-hidden bg-[#f5f5f7]">
+        <div className="relative w-full sm:w-[260px] h-[240px] sm:h-auto overflow-hidden bg-[#fafafa] flex-shrink-0">
           <img
             src={doctor.image}
             alt={doctor.name}
-            className={`h-full w-full ${isDefaultVector ? 'object-contain p-14' : 'object-cover object-center'}`}
+            className={`h-full w-full ${isDefaultVector ? 'object-contain p-12' : 'object-cover object-center'}`}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent" />
-          
-          <div className="absolute bottom-6 left-8">
-            <div className="inline-block rounded-full bg-black/5 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-black/50 backdrop-blur-md">
-              Verified Specialist
-            </div>
-            <h2 className="mt-2 text-4xl font-bold tracking-tight text-ink">{doctor.name}</h2>
-            <p className="mt-0.5 text-lg font-medium text-ink/40">{doctor.specialty}</p>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/10 to-transparent sm:hidden" />
         </div>
 
-        <div className="px-8 pb-10 pt-8">
-          <div className="grid grid-cols-2 gap-4">
-            <MetricBlock label="Experience" value={doctor.experience} />
-            <MetricBlock label="Session Fee" value={`₹ ${doctor.price}`} />
-            <MetricBlock label="Languages" value={doctor.languages} />
-            <MetricBlock label="Working Hours" value={doctor.hours} />
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 overflow-y-auto px-8 sm:px-10 py-8 min-h-0 custom-scrollbar">
+            <div className="inline-block rounded-full bg-black/5 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-black/40">
+              Verified Specialist
+            </div>
+            <h2 className="mt-3 text-3xl font-black tracking-[-0.04em] text-ink leading-tight">{doctor.name}</h2>
+            <p className="text-sm font-bold text-ink/30 mb-8">{doctor.specialty}</p>
+
+            <div className="grid grid-cols-2 gap-2 mb-10">
+              <MetricBlock label="Experience" value={doctor.experience} />
+              <MetricBlock label="Session Fee" value={`₹ ${doctor.price}`} />
+              <MetricBlock label="Languages" value={doctor.languages} />
+              <MetricBlock label="Availability" value={doctor.hours} />
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ink/20 leading-none">Clinical Summary</p>
+              <p className="text-[0.9rem] leading-relaxed text-ink/50 font-medium">{doctor.bio}</p>
+            </div>
           </div>
 
-          <div className="mt-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ink/20">Clinical Profile</p>
-            <p className="mt-4 text-[0.95rem] leading-relaxed text-ink/65">{doctor.bio}</p>
-          </div>
-
-          <div className="mt-10 flex items-center justify-between gap-6 border-t border-black/[0.04] pt-8">
-            <div className="hidden sm:block">
-              <p className="text-[11px] font-black uppercase tracking-widest text-ink/30">Secure Booking</p>
-              <p className="mt-0.5 text-xs font-semibold text-ink/50">Official Lyxaa Provider</p>
+          <div className="sticky bottom-0 bg-white border-t border-black/[0.03] px-8 sm:px-10 py-6 flex items-center justify-between gap-4">
+            <div className="hidden lg:block whitespace-nowrap">
+              <p className="text-[9px] font-black uppercase tracking-widest text-ink/25">Official Care</p>
+              <p className="mt-0.5 text-[10px] font-bold text-ink/40">Lyxaa Provider Network</p>
             </div>
             <motion.button
               whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               onClick={onBook}
-              className="flex-1 rounded-full bg-black py-4 text-[13px] font-black uppercase tracking-[0.2em] text-white shadow-xl sm:flex-initial sm:px-12"
+              className="w-full sm:w-auto rounded-2xl bg-black py-4 px-10 text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-black/10"
             >
-              Book Specialist
+              Secure Booking
             </motion.button>
           </div>
         </div>
