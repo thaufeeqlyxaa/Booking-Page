@@ -1,7 +1,14 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    remotePatterns: []
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+        port: '',
+        pathname: '/**',
+      },
+    ]
   }
 };
 

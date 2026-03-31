@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { FormEvent, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { doctors, type Doctor } from '@/data/doctors';
 import { services, type Service } from '@/data/services';
 import { appendStoredBookingSubmission, getStoredDoctors, getStoredServices } from '@/lib/catalog-storage';
@@ -181,25 +181,6 @@ export default function Home() {
 
       setDeliveryMode(result.mode);
 
-      // Persist submission to admin panel
-      appendStoredBookingSubmission({
-        id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        createdAt: new Date().toISOString(),
-        doctorId: activeDoctor.id,
-        doctorName: activeDoctor.name,
-        doctorSpecialty: activeDoctor.specialty,
-        serviceId: selectedService.id,
-        serviceName: selectedService.name,
-        serviceDuration: selectedService.duration,
-        patientName: details.name.trim(),
-        phone: details.phone.trim(),
-        email: details.email.trim(),
-        age: details.age.trim(),
-        notes: details.notes.trim() || 'None provided',
-        deliveryMode: result.mode,
-        status: 'submitted'
-      });
-
       setSubmitState('idle');
       setStep('success');
     } catch (error) {
@@ -209,16 +190,17 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#efefef] text-ink">
-      <BackgroundOrbits />
-
+    <main className="min-h-screen overflow-hidden bg-white text-ink">
       <header className="relative z-10 border-b border-black/6 bg-white/72 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-8 lg:px-10">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.48em] text-mist">Lyxaa</p>
-            <p className="mt-1 text-sm font-medium text-ink">Doctor Booking</p>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8 lg:px-10">
+          <div className="flex items-center gap-4">
+            <img src="/logo.svg" alt="Lyxaa" className="h-10 w-10 object-contain" />
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.48em] text-mist">Lyxaa</p>
+              <p className="mt-1 text-sm font-medium text-ink">Doctor Booking</p>
+            </div>
           </div>
-          <div className="rounded-full border border-black/8 bg-white/80 px-4 py-2 text-sm text-ink/60">
+          <div className="rounded-full border border-black/8 bg-white/80 px-4 py-2 text-xs font-semibold tracking-wide text-ink/60">
             Minimal booking flow
           </div>
         </div>
@@ -477,27 +459,7 @@ export default function Home() {
                   ) : null}
 
                   {step === 'success' ? (
-                    <motion.div {...panelMotion} transition={{ duration: 0.22 }} className="space-y-6 text-center">
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-black text-white">
-                        ✓
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-xs uppercase tracking-[0.36em] text-mist">Booking submitted</p>
-                        <h3 className="text-3xl font-semibold tracking-[-0.05em] text-ink">Request sent successfully</h3>
-                        <p className="mx-auto max-w-xl text-sm leading-relaxed text-ink/62">
-                          {deliveryMode === 'mailto'
-                            ? 'A ready-to-send draft has been opened in your email app so the booking can still be sent without direct email credentials.'
-                            : 'Your booking request has been sent successfully and is ready for follow-up.'}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={resetBooking}
-                        className="rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#181818]"
-                      >
-                        Book another doctor
-                      </button>
-                    </motion.div>
+                    <SuccessState onReset={resetBooking} />
                   ) : null}
                 </div>
               </div>
@@ -505,13 +467,6 @@ export default function Home() {
           )}
         </AnimatePresence>
       </section>
-
-      <footer className="relative z-10 border-t border-black/6 bg-white/45">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-5 text-sm text-ink/55 sm:px-8 lg:px-10 md:flex-row md:items-center md:justify-between">
-          <p>Lyxaa doctor booking</p>
-          <p>Doctor first. Then service, details, review, and submit.</p>
-        </div>
-      </footer>
 
       <AnimatePresence>
         {previewDoctor ? (
@@ -619,75 +574,58 @@ function DoctorCardRedesigned({
 
   return (
     <motion.article
-      variants={doctorCardMotion}
-      whileHover={{ y: -8, scale: 1.015 }}
-      whileTap={{ scale: 0.995 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative flex h-[520px] flex-col overflow-hidden rounded-[38px] border border-black/[0.04] bg-white/72 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.03)] backdrop-blur-3xl transition-all hover:border-black/[0.08] hover:shadow-[0_45px_100px_rgba(0,0,0,0.12)]"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -5, transition: { duration: 0.2 } }}
+      className="group relative flex flex-col overflow-hidden rounded-[40px] bg-white p-4 shadow-[0_10px_40px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.03] transition-all hover:shadow-[0_20px_60px_rgba(0,0,0,0.08)]"
+      onClick={onPreview}
     >
-      {/* Glossy overlay effect */}
-      <div className="pointer-events-none absolute inset-0 rounded-[38px] bg-[linear-gradient(135deg,rgba(255,255,255,0.4),transparent_50%)]" />
-
-      {/* Header — 100% Consistent Height */}
-      <div className="relative z-10 flex h-[72px] items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="line-clamp-2 text-[1.4rem] font-bold leading-[1.15] tracking-[-0.05em] text-ink">
-            {doctor.name}
-          </h3>
-          <p className="mt-1.5 truncate text-[0.82rem] font-medium tracking-[0.02em] text-ink/45 uppercase">{doctor.specialty}</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onPreview}
-          aria-label={`View ${doctor.name} details`}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.05] bg-white/40 text-ink/40 transition-all hover:bg-black hover:text-white"
-        >
-          <EyeIcon />
-        </button>
-      </div>
-
-      {/* Visual Workspace — Fixed Aspect Square */}
-      <div className="relative z-10 mt-5 aspect-square overflow-hidden rounded-[32px] border border-black/[0.03] bg-[linear-gradient(180deg,#fcfcfc,#f3f3f3)] shadow-inner">
+      {/* Top Image Container - Modern Profile Look */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[32px] bg-[#f9f9f9]">
         <img
           src={doctor.image}
           alt={doctor.name}
-          className={`h-full w-full transition duration-1000 group-hover:scale-[1.04] ${
-            isDefaultVector ? 'object-contain p-8' : 'object-cover object-center'
+          className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-110 ${
+            isDefaultVector ? 'p-10 object-contain' : 'object-cover object-center'
           }`}
         />
-        {/* Subtle vignette */}
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_60%,rgba(0,0,0,0.015))]" />
+        
+        {/* Floating Profile Badge - Reference to Image 1 */}
+        <div className="absolute right-3 top-3 overflow-hidden rounded-2xl bg-white p-1 shadow-sm">
+          <div className="rounded-xl bg-[#ffd6e8] px-4 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#d64a8c]">Profile</span>
+          </div>
+        </div>
       </div>
 
-      {/* Detail footer - Pinned to bottom */}
-      <div className="relative z-10 mt-auto pt-5">
-        <div className="flex items-center justify-between gap-4 rounded-[24px] bg-black/[0.03] px-4 py-3.5 backdrop-blur-md">
-          <div className="min-w-0">
-            <p className="truncate text-[0.88rem] font-bold tracking-[-0.02em] text-ink">{doctor.experience}</p>
-            <p className="mt-0.5 truncate text-[0.72rem] font-medium text-ink/35 uppercase tracking-widest">{doctor.hours}</p>
+      <div className="flex flex-col items-center pt-8 pb-4 text-center">
+        <h3 className="text-xl font-semibold tracking-tight text-ink">{doctor.name}</h3>
+        <p className="mt-1 text-sm font-medium text-ink/40">{doctor.specialty}</p>
+        
+        {/* Experience Label - Subtle Reference to Image 3 Layout */}
+        <div className="mt-6 flex items-center gap-2 border-t border-black/[0.04] pt-6 w-full px-4">
+          <div className="flex-1">
+             <p className="text-[10px] font-bold uppercase tracking-widest text-ink/20">Experience</p>
+             <p className="mt-1 text-xs font-semibold text-ink/60">{doctor.experience}</p>
           </div>
-          <div className="text-right">
-            <p className="text-[1.1rem] font-black tracking-[-0.04em] text-ink">₹{doctor.price}</p>
+          <div className="h-8 w-px bg-black/[0.04]" />
+          <div className="flex-1">
+             <p className="text-[10px] font-bold uppercase tracking-widest text-ink/20">Price</p>
+             <p className="mt-1 text-xs font-semibold text-ink/60">₹{doctor.price}</p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-ink/40">
-            <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500/60" />
-            <p className="truncate text-[0.78rem] font-semibold">{doctor.slot}</p>
-          </div>
-
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.96 }}
-            type="button"
-            onClick={onBook}
-            className="rounded-full bg-ink px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-black hover:shadow-lg hover:shadow-black/10"
-          >
-            Book Session
-          </motion.button>
-        </div>
+        {/* View Summary / Book Session Button - Reference to Image 1 Style */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onBook();
+          }}
+          className="mt-8 w-full rounded-2xl bg-[#f2f2f2] py-4 text-sm font-semibold text-ink transition-all hover:bg-black hover:text-white active:scale-95"
+        >
+          Book Appointment
+        </button>
       </div>
     </motion.article>
   );
@@ -702,35 +640,44 @@ function DoctorPreviewModal({
   onClose: () => void;
   onBook: () => void;
 }) {
+  const shouldReduceMotion = useReducedMotion();
   const isDefaultVector =
     doctor.image.endsWith('.svg') ||
     doctor.image.includes('/images/doctors/') ||
     doctor.image.startsWith('data:image/svg+xml');
 
+  const overlayInitial = shouldReduceMotion ? { opacity: 1 } : { opacity: 0 };
+  const overlayExit = shouldReduceMotion ? { opacity: 0 } : { opacity: 0 };
+  const modalInitial = shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.985, y: 14 };
+  const modalExit = shouldReduceMotion ? { opacity: 0, scale: 1, y: 0 } : { opacity: 0, scale: 0.99, y: 10 };
+  const motionTransition = shouldReduceMotion
+    ? { duration: 0 }
+    : { duration: 0.26, ease: [0.16, 1, 0.3, 1] };
+
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={overlayInitial}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/32 px-4 py-6 backdrop-blur-3xl"
+      exit={overlayExit}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25 px-4 py-6 backdrop-blur-3xl"
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        initial={modalInitial}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 15 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-[520px] overflow-hidden rounded-[42px] border border-white/[0.12] bg-white/95 shadow-[0_50px_100px_rgba(0,0,0,0.22)] backdrop-blur-3xl"
+        exit={modalExit}
+        transition={motionTransition}
+        className="relative w-full max-w-[520px] overflow-hidden rounded-[42px] border border-black/[0.08] bg-white/92 shadow-[0_50px_120px_rgba(0,0,0,0.22)] backdrop-blur-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute right-6 top-6 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-ink/40 transition hover:bg-black hover:text-white"
+          className="absolute right-6 top-6 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.10] bg-white/70 text-ink/60 backdrop-blur-md transition hover:bg-white/90 hover:text-ink/80"
         >
           <CloseIcon />
         </button>
 
-        <div className="relative h-[240px] w-full overflow-hidden bg-[linear-gradient(135deg,#fcfcfc,#efefef)]">
+        <div className="relative h-[240px] w-full overflow-hidden bg-[linear-gradient(135deg,#fbfbfb,#efefef)]">
           <img
             src={doctor.image}
             alt={doctor.name}
@@ -749,7 +696,7 @@ function DoctorPreviewModal({
           <div className="mt-7 grid grid-cols-2 gap-3">
             <MetricBlock label="Experience" value={doctor.experience} />
             <MetricBlock label="Therapy Volume" value={doctor.hours} />
-            <MetricBlock label="Next Available" value={doctor.slot} />
+            <MetricBlock label="Languages" value={doctor.languages} />
             <MetricBlock label="Starting Price" value={`₹ ${doctor.price}`} />
           </div>
 
@@ -763,10 +710,10 @@ function DoctorPreviewModal({
               <p className="text-[0.75rem] font-medium text-ink/40">Quick checkout available</p>
             </div>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.96 }}
+              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               onClick={onBook}
-              className="rounded-full bg-ink px-8 py-4 text-[13px] font-black uppercase tracking-[0.16em] text-white"
+              className="rounded-full bg-ink px-8 py-4 text-[13px] font-black uppercase tracking-[0.16em] text-white shadow-[0_18px_50px_rgba(0,0,0,0.18)]"
             >
               Book Specialist
             </motion.button>
@@ -891,11 +838,73 @@ function CloseIcon() {
   );
 }
 
+function SuccessState({ onReset }: { onReset: () => void }) {
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          window.location.href = 'https://lyxaa.com';
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="space-y-8 text-center py-10"
+    >
+      <div className="relative mx-auto h-24 w-24">
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', damping: 12, stiffness: 200, delay: 0.1 }}
+          className="flex h-full w-full items-center justify-center rounded-full bg-black text-white shadow-2xl shadow-black/20"
+        >
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </motion.div>
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="absolute inset-0 rounded-full bg-black/10"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-xs font-black uppercase tracking-[0.4em] text-mist">Confirmed</p>
+        <h3 className="text-4xl font-bold tracking-tight text-ink">Booking Successful</h3>
+        <p className="mx-auto max-w-md text-[0.95rem] font-medium leading-relaxed text-ink/50">
+          Your request has been received. Redirecting to home page in <span className="text-ink font-bold tabular-nums">{countdown}s</span>...
+        </p>
+      </div>
+
+      <div className="flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-full bg-black/5 px-8 py-4 text-xs font-black uppercase tracking-widest text-ink transition hover:bg-black/10"
+        >
+          Book another doctor
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 function Footer() {
   return (
     <footer className="mt-20 border-t border-black/[0.05] bg-white/40 pb-16 pt-16 backdrop-blur-sm">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
-        <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
+        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
           <div className="text-center md:text-left">
             <h2 className="text-xl font-bold tracking-tight text-ink">Lyxaa Booking Page</h2>
             <p className="mt-2 text-sm text-ink/40">
@@ -903,7 +912,7 @@ function Footer() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-6 md:justify-end">
             <a href="#" className="text-sm font-medium text-ink/50 transition hover:text-ink">Legal</a>
             <a href="#" className="text-sm font-medium text-ink/50 transition hover:text-ink">Privacy</a>
             <a href="#" className="text-sm font-medium text-ink/50 transition hover:text-ink">Support</a>
@@ -911,7 +920,6 @@ function Footer() {
             <a 
               href="/admin/login" 
               className="flex items-center gap-2 rounded-full border border-black/[0.08] bg-white px-5 py-2 text-sm font-bold text-ink shadow-sm transition hover:bg-black hover:text-white"
-
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -931,4 +939,5 @@ function Footer() {
     </footer>
   );
 }
+
 

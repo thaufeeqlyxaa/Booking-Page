@@ -53,7 +53,7 @@ function normalizeDoctor(value: unknown, index: number): Doctor | null {
     ? record.topics.filter((topic): topic is string => typeof topic === 'string' && topic.trim().length > 0)
     : [];
 
-  if (!record.name || !record.specialty || !record.experience || !record.bio || !record.hours || !record.slot) {
+  if (!record.name || !record.specialty || !record.experience || !record.bio || !record.hours || !record.languages) {
     return null;
   }
 
@@ -66,7 +66,7 @@ function normalizeDoctor(value: unknown, index: number): Doctor | null {
     image: typeof record.image === 'string' && record.image.trim() ? record.image.trim() : '/images/doctors/doctor-1.svg',
     hours: record.hours.trim(),
     topics,
-    slot: record.slot.trim(),
+    languages: record.languages.trim(),
     price: Number.isFinite(price) && price > 0 ? price : 1000
   };
 }

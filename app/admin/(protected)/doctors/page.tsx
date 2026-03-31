@@ -22,7 +22,7 @@ type DoctorFormState = {
   bio: string;
   hours: string;
   topics: string;
-  slot: string;
+  languages: string;
   price: string;
 };
 
@@ -36,7 +36,7 @@ const initialDoctorForm: DoctorFormState = {
   bio: '',
   hours: '',
   topics: '',
-  slot: '',
+  languages: '',
   price: ''
 };
 
@@ -110,7 +110,7 @@ export default function AdminDoctorsPage() {
       bio: doctor.bio,
       hours: doctor.hours,
       topics: doctor.topics.join(', '),
-      slot: doctor.slot,
+      languages: doctor.languages,
       price: String(doctor.price)
     });
     setEditingDoctorId(doctor.id);
@@ -159,8 +159,8 @@ export default function AdminDoctorsPage() {
     event.preventDefault();
 
     const price = Number(form.price);
-    if (!form.name.trim() || !form.specialty.trim() || !form.experience.trim() || !form.bio.trim() || !form.hours.trim() || !form.slot.trim() || !form.price.trim()) {
-      setError('Required: Complete all clinical fields.');
+    if (!form.name.trim() || !form.specialty.trim() || !form.experience.trim() || !form.bio.trim() || !form.hours.trim() || !form.languages.trim() || !form.price.trim()) {
+      setError('Please fill in all doctor details.');
       return;
     }
 
@@ -178,7 +178,7 @@ export default function AdminDoctorsPage() {
       bio: form.bio.trim(),
       hours: form.hours.trim(),
       topics: form.topics.split(',').map((t) => t.trim()).filter(Boolean),
-      slot: form.slot.trim(),
+      languages: form.languages.trim(),
       price
     };
 
@@ -189,11 +189,11 @@ export default function AdminDoctorsPage() {
     try {
       saveStoredDoctors(nextDoctors);
       setDoctorList(nextDoctors);
-      setSuccess(isEditing ? 'Directory updated successfully.' : 'New doctor added to directory.');
+      setSuccess(isEditing ? 'Doctor profile updated.' : 'New doctor added.');
       setShowForm(false);
       resetForm();
     } catch {
-      setError('Persistence failed. Try optimized image size.');
+      setError('Save failed.');
     }
   };
 
@@ -219,26 +219,26 @@ export default function AdminDoctorsPage() {
   return (
     <section className="space-y-8 pb-32">
       {/* Header Block */}
-      <div className="rounded-[40px] border border-black/[0.04] bg-white/70 p-8 shadow-[0_2px_16px_rgba(0,0,0,0.02)] backdrop-blur-3xl">
+      <div className="rounded-[40px] border border-black/[0.04] bg-white p-10 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <span className="h-1.5 w-1.5 rounded-full bg-ink/20" />
+              <span className="h-1.5 w-1.5 rounded-full bg-black/20" />
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-ink/30">Directory Management</p>
             </div>
-            <h1 className="mt-3 text-[2.4rem] font-black tracking-[-0.06em] text-ink">Clinical Personnel</h1>
+            <h1 className="mt-3 text-[2.4rem] font-black tracking-tight text-ink">Doctors</h1>
             <p className="mt-2 max-w-xl text-[0.92rem] font-medium leading-relaxed text-ink/45">
-              Sync doctor profiles, availability, and session pricing with the live booking interface.
+              Manage your doctor profiles and their session details.
             </p>
           </div>
 
           <button
             onClick={() => (showForm ? closeForm() : openCreateForm())}
-            className={`shrink-0 flex items-center gap-2 rounded-full px-8 py-4 text-[0.85rem] font-bold uppercase tracking-widest transition-all duration-300 ${
-              showForm ? 'bg-black/5 text-ink hover:bg-black/10' : 'bg-ink text-white shadow-xl shadow-black/10 hover:bg-black'
+            className={`shrink-0 flex items-center justify-center gap-2 rounded-full px-8 py-4 text-xs font-black uppercase tracking-widest transition-all duration-300 active:scale-95 ${
+              showForm ? 'bg-black/5 text-ink hover:bg-black/10' : 'bg-black text-white shadow-lg shadow-black/10 hover:bg-black/90'
             }`}
           >
-            {showForm ? 'Cancel Operation' : '+ Add Specialist'}
+            {showForm ? 'Cancel' : '+ Add Doctor'}
           </button>
         </div>
 
@@ -254,10 +254,10 @@ export default function AdminDoctorsPage() {
                   <p className="text-center text-[10px] font-bold uppercase tracking-widest text-ink/25">{imageLabel}</p>
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full bg-ink/5 py-2.5 text-[0.75rem] font-bold text-ink hover:bg-ink/10">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full bg-black/5 py-2.5 text-[0.75rem] font-bold text-ink hover:bg-black/10 transition-colors">
                       {isUploading ? '...' : 'Upload'}
                     </button>
-                    <button type="button" onClick={() => updateField('image', defaultImage)} className="rounded-full bg-ink/5 py-2.5 text-[0.75rem] font-bold text-ink hover:bg-ink/10">
+                    <button type="button" onClick={() => updateField('image', defaultImage)} className="rounded-full bg-black/5 py-2.5 text-[0.75rem] font-bold text-ink hover:bg-black/10 transition-colors">
                       Default
                     </button>
                   </div>
@@ -267,21 +267,21 @@ export default function AdminDoctorsPage() {
               {/* Data Grid */}
               <div className="space-y-6">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <Input label="Full identity" value={form.name} onChange={v => updateField('name', v)} placeholder="Dr. Sarah Johnson" />
-                  <Input label="Clinical Specialty" value={form.specialty} onChange={v => updateField('specialty', v)} placeholder="Lead Psychotherapist" />
-                  <Input label="Experience Level" value={form.experience} onChange={v => updateField('experience', v)} placeholder="12 Years Clinical" />
-                  <Input label="Therapy Volume" value={form.hours} onChange={v => updateField('hours', v)} placeholder="4000+ Session Hours" />
-                  <Input label="Next Open Slot" value={form.slot} onChange={v => updateField('slot', v)} placeholder="Tomorrow, 10:00 AM" />
+                  <Input label="Name" value={form.name} onChange={v => updateField('name', v)} placeholder="Dr. Sarah Johnson" />
+                  <Input label="Specialty" value={form.specialty} onChange={v => updateField('specialty', v)} placeholder="Lead Psychotherapist" />
+                  <Input label="Experience" value={form.experience} onChange={v => updateField('experience', v)} placeholder="12 Years" />
+                  <Input label="Working Hours" value={form.hours} onChange={v => updateField('hours', v)} placeholder="5000+ therapy hours" />
+                  <Input label="Languages Spoken" value={form.languages} onChange={v => updateField('languages', v)} placeholder="English, Malayalam" />
                   <Input label="Session Fee" value={form.price} onChange={v => updateField('price', v)} placeholder="1500" inputMode="numeric" />
                 </div>
-                <Input label="Areas of Focus (Comma separated)" value={form.topics} onChange={v => updateField('topics', v)} placeholder="Stress, OCD, Family Therapy" />
-                <Textarea label="Specialist Profile" value={form.bio} onChange={v => updateField('bio', v)} placeholder="Executive bio for patient review." />
+                <Input label="Tags (Comma separated)" value={form.topics} onChange={v => updateField('topics', v)} placeholder="Stress, OCD, Family Therapy" />
+                <Textarea label="Bio" value={form.bio} onChange={v => updateField('bio', v)} placeholder="Description of the doctor." />
                 
                 <div className="flex items-center justify-between border-t border-black/[0.05] pt-6">
                   {error && <p className="text-sm font-bold text-red-500 mr-4">{error}</p>}
                   {!error && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ink/20">All fields mandatory</p>}
-                  <button type="submit" className="rounded-full bg-ink px-10 py-4 text-[0.85rem] font-black uppercase tracking-widest text-white shadow-xl shadow-black/10 transition-all hover:bg-black">
-                    {isEditing ? 'Commit Changes' : 'Initialize Specialist'}
+                  <button type="submit" className="rounded-full bg-black px-10 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-black/10 transition-all hover:bg-black/90 active:scale-95">
+                    {isEditing ? 'Save Changes' : 'Add Doctor'}
                   </button>
                 </div>
               </div>
@@ -295,15 +295,15 @@ export default function AdminDoctorsPage() {
       {/* Specialist List Grid */}
       <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
         {doctorList.map((doctor) => (
-          <article key={doctor.id} className="group relative flex flex-col overflow-hidden rounded-[40px] border border-black/[0.04] bg-white/70 p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] backdrop-blur-3xl transition-all duration-500 hover:border-black/[0.1] hover:shadow-[0_30px_70px_rgba(0,0,0,0.08)]">
+          <article key={doctor.id} className="group relative flex flex-col overflow-hidden rounded-[40px] border border-black/[0.04] bg-white p-6 shadow-sm transition-all duration-300 hover:border-black/[0.08] hover:shadow-xl hover:shadow-black/5 hover:-translate-y-1">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-black/[0.06] bg-black/[0.02] shadow-sm">
                   <img src={doctor.image} alt={doctor.name} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="truncate text-[1.15rem] font-bold tracking-[-0.03em] text-ink">{doctor.name}</h3>
-                  <p className="mt-0.5 truncate text-[0.82rem] font-medium text-ink/40 uppercase tracking-wider">{doctor.specialty}</p>
+                  <h3 className="truncate text-xl font-bold tracking-tight text-ink">{doctor.name}</h3>
+                  <p className="mt-0.5 truncate text-[10px] font-bold text-ink/40 uppercase tracking-widest">{doctor.specialty}</p>
                 </div>
               </div>
 
@@ -317,14 +317,14 @@ export default function AdminDoctorsPage() {
               <MiniPill label="Exp" value={doctor.experience} />
               <MiniPill label="Hours" value={doctor.hours} />
               <MiniPill label="Price" value={`₹ ${doctor.price}`} />
-              <MiniPill label="Slot" value={doctor.slot} />
+              <MiniPill label="Languages" value={doctor.languages} />
             </div>
 
             <div className="mt-5 flex flex-wrap gap-1.5 overflow-hidden max-h-[64px]">
               {doctor.topics.slice(0, 3).map(t => (
-                <span key={t} className="rounded-full bg-ink/[0.03] px-3 py-1.5 text-[0.72rem] font-bold text-ink/40">#{t}</span>
+                <span key={t} className="rounded-full bg-black/[0.03] px-3 py-1.5 text-[0.72rem] font-bold text-ink/60">#{t}</span>
               ))}
-              {doctor.topics.length > 3 && <span className="text-[0.72rem] font-bold text-ink/20 pt-1.5">+{doctor.topics.length - 3} more</span>}
+              {doctor.topics.length > 3 && <span className="text-[0.72rem] font-bold text-ink/40 pt-1.5">+{doctor.topics.length - 3} more</span>}
             </div>
           </article>
         ))}
@@ -343,7 +343,7 @@ function Input({ label, value, onChange, placeholder, inputMode }: { label: stri
         onChange={e => onChange(e.target.value)} 
         placeholder={placeholder}
         inputMode={inputMode}
-        className="w-full h-12 bg-black/[0.03] border-none rounded-[18px] px-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-ink/5" 
+        className="w-full h-12 bg-black/[0.03] border-none rounded-[18px] px-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none" 
       />
     </div>
   );
@@ -358,7 +358,7 @@ function Textarea({ label, value, onChange, placeholder }: { label: string, valu
         value={value} 
         onChange={e => onChange(e.target.value)} 
         placeholder={placeholder}
-        className="w-full bg-black/[0.03] border-none rounded-[22px] px-4 py-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-ink/5" 
+        className="w-full bg-black/[0.03] border-none rounded-[22px] px-4 py-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none resize-none" 
       />
     </div>
   );
@@ -375,7 +375,7 @@ function MiniPill({ label, value }: { label: string, value: string }) {
 
 function IconButton({ onClick, icon, isDestructive }: { onClick: () => void, icon: React.ReactNode, isDestructive?: boolean }) {
   return (
-    <button onClick={onClick} className={`h-9 w-9 flex items-center justify-center rounded-full transition-colors ${isDestructive ? 'hover:bg-red-500/10 text-red-500' : 'hover:bg-black/5 text-ink/30 hover:text-ink'}`}>
+    <button type="button" onClick={onClick} className={`h-9 w-9 flex items-center justify-center rounded-full transition-colors ${isDestructive ? 'hover:bg-red-500 hover:text-white text-red-500/50' : 'hover:bg-black text-ink/30 hover:text-white'}`}>
       {icon}
     </button>
   );

@@ -6,17 +6,15 @@
   color-scheme: light;
   --lyxaa-ink: #000000;
   --lyxaa-sage: #111111;
-  --lyxaa-sand: #efefef;
+  --lyxaa-sand: #ffffff;
   --lyxaa-mist: #6f6f6f;
-  --lyxaa-horizon: #efefef;
-  --lyxaa-sunrise: #d4d4d4;
+  --lyxaa-horizon: #ffffff;
+  --lyxaa-sunrise: #f5f5f7;
 }
 
 body {
   font-family: var(--font-sans, 'SF Pro Display', 'SF Pro Text', -apple-system, system-ui, sans-serif);
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.85), transparent 34%),
-    linear-gradient(180deg, #f7f7f7 0%, var(--lyxaa-horizon) 100%);
+  background: white;
   color: var(--lyxaa-ink);
   min-height: 100vh;
 }

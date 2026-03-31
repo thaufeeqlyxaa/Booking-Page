@@ -7,7 +7,7 @@ export type Doctor = {
   image: string;
   hours: string;
   topics: string[];
-  slot: string;
+  languages: string;
   price: number;
 };
 
@@ -21,7 +21,7 @@ export const doctors: Doctor[] = [
     image: '/images/doctors/doctor-1.svg',
     hours: '5000+ therapy hours',
     topics: ['Life transitions', 'Stress', 'Relationship concerns'],
-    slot: 'Today, 1:00 PM',
+    languages: 'English, Malayalam',
     price: 1500
   },
   {
@@ -33,7 +33,7 @@ export const doctors: Doctor[] = [
     image: '/images/doctors/doctor-2.svg',
     hours: '2500+ therapy hours',
     topics: ['Anxiety', 'Burnout', 'Anger management'],
-    slot: 'Today, 2:15 PM',
+    languages: 'English, Hindi',
     price: 1200
   },
   {
@@ -45,7 +45,7 @@ export const doctors: Doctor[] = [
     image: '/images/doctors/doctor-3.svg',
     hours: '2500+ therapy hours',
     topics: ['Trauma', 'Motivation', 'Self-esteem'],
-    slot: 'Today, 3:00 PM',
+    languages: 'English, Tamil',
     price: 1000
   },
   {
@@ -57,7 +57,7 @@ export const doctors: Doctor[] = [
     image: '/images/doctors/doctor-2.svg',
     hours: '3000+ therapy hours',
     topics: ['Self-esteem', 'Emotional conflicts', 'Life direction'],
-    slot: 'Today, 3:30 PM',
+    languages: 'English, Malayalam',
     price: 1000
   },
   {
@@ -69,7 +69,7 @@ export const doctors: Doctor[] = [
     image: '/images/doctors/doctor-1.svg',
     hours: '1500+ therapy hours',
     topics: ['Adjustment', 'Work stress', 'Emotional regulation'],
-    slot: 'Today, 4:00 PM',
+    languages: 'English, Malayalam',
     price: 1000
   },
   {
@@ -81,7 +81,7 @@ export const doctors: Doctor[] = [
     image: '/images/doctors/doctor-3.svg',
     hours: '2500+ therapy hours',
     topics: ['Stress', 'Focus', 'Neurodivergent support'],
-    slot: 'Today, 5:00 PM',
+    languages: 'English, Hindi, Tamil',
     price: 1000
   }
 ];
