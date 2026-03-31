@@ -38,13 +38,9 @@ export default function ProtectedAdminLayout({ children }: { children: ReactNode
       <div className="relative mx-auto max-w-7xl px-6 py-8">
         <header className="sticky top-6 z-50 flex items-center justify-between rounded-[28px] border border-black/[0.03] bg-white/80 p-3 shadow-sm backdrop-blur-xl">
           <div className="flex items-center gap-6">
-            <Link href="/admin" className="flex items-center gap-3 pl-2">
+            <Link href="/admin" className="flex items-center gap-3 pl-2 transition-transform hover:scale-105 active:scale-95">
               <div className="relative w-12 h-12 flex items-center justify-center">
                 <Image src="/logo.svg" alt="Lyxaa" width={48} height={48} className="object-contain" />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-xs font-black tracking-widest text-ink uppercase">Admin Dashboard</h1>
-                <p className="text-[10px] font-bold text-ink/30 uppercase tracking-[0.1em]">Dashboard</p>
               </div>
             </Link>
 

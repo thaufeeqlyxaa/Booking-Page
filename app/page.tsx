@@ -193,12 +193,8 @@ export default function Home() {
     <main className="min-h-screen overflow-hidden bg-white text-ink">
       <header className="relative z-10 border-b border-black/6 bg-white/72 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8 lg:px-10">
-          <div className="flex items-center gap-4">
-            <img src="/logo.svg" alt="Lyxaa" className="h-10 w-10 object-contain" />
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.48em] text-mist">Lyxaa</p>
-              <p className="mt-1 text-sm font-medium text-ink">Doctor Booking</p>
-            </div>
+          <div className="flex items-center">
+            <img src="/logo.svg" alt="Lyxaa" className="h-10 object-contain" />
           </div>
           <div className="rounded-full border border-black/8 bg-white/80 px-4 py-2 text-xs font-semibold tracking-wide text-ink/60">
             Minimal booking flow
@@ -590,44 +586,50 @@ function DoctorCardRedesigned({
           }`}
         />
         
-        {/* Floating Profile Badge - Reference to Image 1 */}
-        <div className="absolute right-3 top-3 overflow-hidden rounded-2xl bg-white p-1 shadow-sm">
-          <div className="rounded-xl bg-[#ffd6e8] px-4 py-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#d64a8c]">Profile</span>
+        {/* Floating Profile Badge - Updated to use icon-like circle */}
+        <div className="absolute right-4 top-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/40 shadow-sm backdrop-blur-md transition-colors hover:bg-white/60">
+            <UserIconSmall />
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col items-center pt-8 pb-4 text-center">
-        <h3 className="text-xl font-semibold tracking-tight text-ink">{doctor.name}</h3>
-        <p className="mt-1 text-sm font-medium text-ink/40">{doctor.specialty}</p>
-        
-        {/* Experience Label - Subtle Reference to Image 3 Layout */}
-        <div className="mt-6 flex items-center gap-2 border-t border-black/[0.04] pt-6 w-full px-4">
-          <div className="flex-1">
-             <p className="text-[10px] font-bold uppercase tracking-widest text-ink/20">Experience</p>
-             <p className="mt-1 text-xs font-semibold text-ink/60">{doctor.experience}</p>
+      <div className="flex flex-col pt-5 pb-3">
+        <h3 className="text-lg font-bold tracking-tight text-ink">{doctor.name}</h3>
+        <p className="mt-0.5 text-[13px] font-medium text-ink/40">{doctor.specialty}</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-px border-t border-black/[0.04] pt-4">
+          <div className="pr-4">
+             <p className="text-[9px] font-black uppercase tracking-widest text-ink/20">Experience</p>
+             <p className="mt-0.5 text-xs font-bold text-ink/65">{doctor.experience}</p>
           </div>
-          <div className="h-8 w-px bg-black/[0.04]" />
-          <div className="flex-1">
-             <p className="text-[10px] font-bold uppercase tracking-widest text-ink/20">Price</p>
-             <p className="mt-1 text-xs font-semibold text-ink/60">₹{doctor.price}</p>
+          <div className="border-l border-black/[0.04] pl-4">
+             <p className="text-[9px] font-black uppercase tracking-widest text-ink/20">Session Fee</p>
+             <p className="mt-0.5 text-xs font-bold text-ink/65">₹{doctor.price}</p>
           </div>
         </div>
 
-        {/* View Summary / Book Session Button - Reference to Image 1 Style */}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onBook();
           }}
-          className="mt-8 w-full rounded-2xl bg-[#f2f2f2] py-4 text-sm font-semibold text-ink transition-all hover:bg-black hover:text-white active:scale-95"
+          className="mt-5 w-full rounded-2xl bg-black px-6 py-3.5 text-xs font-black uppercase tracking-[0.15em] text-white transition-all hover:bg-[#181818] active:scale-95"
         >
           Book Appointment
         </button>
       </div>
     </motion.article>
+  );
+}
+
+function UserIconSmall() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
   );
 }
 
@@ -677,43 +679,46 @@ function DoctorPreviewModal({
           <CloseIcon />
         </button>
 
-        <div className="relative h-[240px] w-full overflow-hidden bg-[linear-gradient(135deg,#fbfbfb,#efefef)]">
+        <div className="relative h-[280px] w-full overflow-hidden bg-[#f5f5f7]">
           <img
             src={doctor.image}
             alt={doctor.name}
-            className={`h-full w-full ${isDefaultVector ? 'object-contain p-12' : 'object-cover object-center'}`}
+            className={`h-full w-full ${isDefaultVector ? 'object-contain p-14' : 'object-cover object-center'}`}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent" />
+          
+          <div className="absolute bottom-6 left-8">
+            <div className="inline-block rounded-full bg-black/5 px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-black/50 backdrop-blur-md">
+              Verified Specialist
+            </div>
+            <h2 className="mt-2 text-4xl font-bold tracking-tight text-ink">{doctor.name}</h2>
+            <p className="mt-0.5 text-lg font-medium text-ink/40">{doctor.specialty}</p>
+          </div>
         </div>
 
-        <div className="relative px-8 pb-8 pt-4">
-          <div className="inline-block rounded-full bg-ink/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-ink/40">
-            Verified Specialist
-          </div>
-          <h2 className="mt-3 text-[2.2rem] font-bold tracking-[-0.06em] text-ink">{doctor.name}</h2>
-          <p className="mt-1 text-[1.1rem] font-medium text-ink/45">{doctor.specialty}</p>
-
-          <div className="mt-7 grid grid-cols-2 gap-3">
+        <div className="px-8 pb-10 pt-8">
+          <div className="grid grid-cols-2 gap-4">
             <MetricBlock label="Experience" value={doctor.experience} />
-            <MetricBlock label="Therapy Volume" value={doctor.hours} />
+            <MetricBlock label="Session Fee" value={`₹ ${doctor.price}`} />
             <MetricBlock label="Languages" value={doctor.languages} />
-            <MetricBlock label="Starting Price" value={`₹ ${doctor.price}`} />
+            <MetricBlock label="Working Hours" value={doctor.hours} />
           </div>
 
-          <div className="mt-7">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink/25">Clinical Profile</p>
-            <p className="mt-3 text-[0.98rem] leading-relaxed text-ink/65">{doctor.bio}</p>
+          <div className="mt-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ink/20">Clinical Profile</p>
+            <p className="mt-4 text-[0.95rem] leading-relaxed text-ink/65">{doctor.bio}</p>
           </div>
 
-          <div className="mt-8 flex items-center justify-between gap-4 border-t border-black/[0.05] pt-7">
-            <div>
-              <p className="text-[0.75rem] font-medium text-ink/40">Quick checkout available</p>
+          <div className="mt-10 flex items-center justify-between gap-6 border-t border-black/[0.04] pt-8">
+            <div className="hidden sm:block">
+              <p className="text-[11px] font-black uppercase tracking-widest text-ink/30">Secure Booking</p>
+              <p className="mt-0.5 text-xs font-semibold text-ink/50">Official Lyxaa Provider</p>
             </div>
             <motion.button
               whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
               whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               onClick={onBook}
-              className="rounded-full bg-ink px-8 py-4 text-[13px] font-black uppercase tracking-[0.16em] text-white shadow-[0_18px_50px_rgba(0,0,0,0.18)]"
+              className="flex-1 rounded-full bg-black py-4 text-[13px] font-black uppercase tracking-[0.2em] text-white shadow-xl sm:flex-initial sm:px-12"
             >
               Book Specialist
             </motion.button>
@@ -905,10 +910,10 @@ function Footer() {
     <footer className="mt-20 border-t border-black/[0.05] bg-white/40 pb-16 pt-16 backdrop-blur-sm">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
-          <div className="text-center md:text-left">
-            <h2 className="text-xl font-bold tracking-tight text-ink">Lyxaa Booking Page</h2>
-            <p className="mt-2 text-sm text-ink/40">
-              Premium therapy booking platform. Built for minimalist performance.
+          <div className="flex flex-col items-center md:items-start">
+            <img src="/logo.svg" alt="Lyxaa" className="h-10 object-contain" />
+            <p className="mt-4 text-sm text-ink/40 max-w-[280px]">
+              Premium medical booking platform. Built for minimalist performance.
             </p>
           </div>
 

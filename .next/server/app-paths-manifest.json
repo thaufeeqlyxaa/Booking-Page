@@ -1,10 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
   "/api/admin/login/route": "app/api/admin/login/route.js",
   "/admin/login/page": "app/admin/login/page.js",
-  "/page": "app/page.js",
-  "/admin/(protected)/doctors/page": "app/admin/(protected)/doctors/page.js",
-  "/admin/(protected)/submissions/page": "app/admin/(protected)/submissions/page.js",
+  "/admin/(protected)/services/page": "app/admin/(protected)/services/page.js",
   "/admin/(protected)/page": "app/admin/(protected)/page.js",
-  "/admin/(protected)/services/page": "app/admin/(protected)/services/page.js"
+  "/admin/(protected)/doctors/page": "app/admin/(protected)/doctors/page.js",
+  "/admin/(protected)/submissions/page": "app/admin/(protected)/submissions/page.js"
 }

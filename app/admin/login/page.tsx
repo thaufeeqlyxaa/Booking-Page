@@ -58,15 +58,9 @@ function LoginFormContainer() {
         className="z-10 w-full max-w-[440px]"
       >
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-[20px] bg-ink text-white shadow-2xl shadow-black/20">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
+          <div className="mx-auto mb-10 flex h-24 w-24 items-center justify-center">
+            <img src="/logo.svg" alt="Lyxaa" className="h-full w-full object-contain" />
           </div>
-          <h1 className="text-[2.6rem] font-black tracking-[-0.06em] text-ink">Admin Login</h1>
-          <p className="mt-2 text-[0.95rem] font-bold text-ink/30 uppercase tracking-[0.2em]">Lyxaa Dashboard</p>
         </div>
 
         <div className="rounded-[42px] border border-black/[0.04] bg-white p-10 shadow-sm">
