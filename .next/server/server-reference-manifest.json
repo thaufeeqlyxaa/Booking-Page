@@ -1,20 +1,5 @@
 {
-  "node": {
-    "c9e5a4bdfa6f4716e68f7aeb16609228eda90250": {
-      "workers": {
-        "app/admin/(protected)/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Flyxaa%2FDocuments%2FBooking%20Page%2Fapp%2Fadmin%2F(protected)%2Flayout.tsx%22%2C%5B%22%24%24ACTION_0%22%5D%5D%5D&__client_imported__=!",
-        "app/admin/(protected)/submissions/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Flyxaa%2FDocuments%2FBooking%20Page%2Fapp%2Fadmin%2F(protected)%2Flayout.tsx%22%2C%5B%22%24%24ACTION_0%22%5D%5D%5D&__client_imported__=!",
-        "app/admin/(protected)/services/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Flyxaa%2FDocuments%2FBooking%20Page%2Fapp%2Fadmin%2F(protected)%2Flayout.tsx%22%2C%5B%22%24%24ACTION_0%22%5D%5D%5D&__client_imported__=!",
-        "app/admin/(protected)/doctors/page": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Flyxaa%2FDocuments%2FBooking%20Page%2Fapp%2Fadmin%2F(protected)%2Flayout.tsx%22%2C%5B%22%24%24ACTION_0%22%5D%5D%5D&__client_imported__=!"
-      },
-      "layer": {
-        "app/admin/(protected)/page": "rsc",
-        "app/admin/(protected)/submissions/page": "rsc",
-        "app/admin/(protected)/services/page": "rsc",
-        "app/admin/(protected)/doctors/page": "rsc"
-      }
-    }
-  },
+  "node": {},
   "edge": {},
-  "encryptionKey": "cygKTNgPI/GFzvrFyg/2irHheUDUMJxhhLgWrYeP2S8="
+  "encryptionKey": "yBioJG5+bo8l/3pTX/TyTGvgxlqtPXBzF7mOkJeaGbE="
 }
