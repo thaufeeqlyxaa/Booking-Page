@@ -11,8 +11,7 @@ import {
   useRef,
   useState
 } from 'react';
-import { doctors as defaultDoctors, type Doctor } from '@/data/doctors';
-import { getStoredDoctors, saveStoredDoctors } from '@/lib/catalog-storage';
+import { type Doctor } from '@/data/doctors';
 
 type DoctorFormState = {
   image: string;
@@ -75,7 +74,10 @@ export default function AdminDoctorsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setDoctorList(getStoredDoctors());
+    fetch('/api/admin/doctors')
+      .then((r) => r.json())
+      .then((json) => { if (json.doctors) setDoctorList(json.doctors); })
+      .catch(() => setError('Failed to load doctors.'));
   }, []);
 
   const isEditing = editingDoctorId !== null;
@@ -182,19 +184,24 @@ export default function AdminDoctorsPage() {
       price
     };
 
-    const nextDoctors = isEditing
-      ? doctorList.map((d) => (d.id === editingDoctorId ? nextDoctor : d))
-      : [nextDoctor, ...doctorList];
-
-    try {
-      saveStoredDoctors(nextDoctors);
-      setDoctorList(nextDoctors);
-      setSuccess(isEditing ? 'Doctor profile updated.' : 'New doctor added.');
-      setShowForm(false);
-      resetForm();
-    } catch {
-      setError('Save failed.');
-    }
+    fetch('/api/admin/doctors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doctor: nextDoctor })
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { setError(json.error); return; }
+        setDoctorList((prev) =>
+          isEditing
+            ? prev.map((d) => (d.id === editingDoctorId ? nextDoctor : d))
+            : [nextDoctor, ...prev]
+        );
+        setSuccess(isEditing ? 'Doctor profile updated.' : 'New doctor added.');
+        setShowForm(false);
+        resetForm();
+      })
+      .catch(() => setError('Save failed.'));
   };
 
   const handleDelete = (doctorId: string) => {
@@ -204,16 +211,16 @@ export default function AdminDoctorsPage() {
     const confirmed = window.confirm(`Permanently remove ${doctor.name} from directory?`);
     if (!confirmed) return;
 
-    const nextDoctors = doctorList.filter((item) => item.id !== doctorId);
-    try {
-      saveStoredDoctors(nextDoctors);
-      setDoctorList(nextDoctors);
-      if (editingDoctorId === doctorId) closeForm();
-      setSuccess('Doctor removed from directory.');
-      setError(null);
-    } catch {
-      setError('Delete failed.');
-    }
+    fetch(`/api/admin/doctors?id=${encodeURIComponent(doctorId)}`, { method: 'DELETE' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { setError(json.error); return; }
+        setDoctorList((prev) => prev.filter((item) => item.id !== doctorId));
+        if (editingDoctorId === doctorId) closeForm();
+        setSuccess('Doctor removed from directory.');
+        setError(null);
+      })
+      .catch(() => setError('Delete failed.'));
   };
 
   return (

@@ -1,8 +1,7 @@
 'use client';
 
 import { FormEvent, type InputHTMLAttributes, useEffect, useState } from 'react';
-import { services as defaultServices, type Service } from '@/data/services';
-import { getStoredServices, saveStoredServices } from '@/lib/catalog-storage';
+import { type Service } from '@/data/services';
 
 type ServiceFormState = {
   name: string;
@@ -29,7 +28,10 @@ export default function AdminServicesPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    setServiceList(getStoredServices());
+    fetch('/api/admin/services')
+      .then((r) => r.json())
+      .then((json) => { if (json.services) setServiceList(json.services); })
+      .catch(() => setError('Failed to load services.'));
   }, []);
 
   const isEditing = editingServiceId !== null;
@@ -91,20 +93,25 @@ export default function AdminServicesPage() {
       price
     };
 
-    const nextServices = isEditing
-      ? serviceList.map((s) => (s.id === editingServiceId ? nextService : s))
-      : [nextService, ...serviceList];
-
-    try {
-      saveStoredServices(nextServices);
-      setServiceList(nextServices);
-      setSuccess(isEditing ? 'Service updated.' : 'New service added.');
-      setShowForm(false);
-      setForm(initialServiceForm);
-      setEditingServiceId(null);
-    } catch {
-      setError('Save failed.');
-    }
+    fetch('/api/admin/services', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ service: nextService })
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { setError(json.error); return; }
+        setServiceList((prev) =>
+          isEditing
+            ? prev.map((s) => (s.id === editingServiceId ? nextService : s))
+            : [nextService, ...prev]
+        );
+        setSuccess(isEditing ? 'Service updated.' : 'New service added.');
+        setShowForm(false);
+        setForm(initialServiceForm);
+        setEditingServiceId(null);
+      })
+      .catch(() => setError('Save failed.'));
   };
 
   const handleDelete = (serviceId: string) => {
@@ -114,16 +121,16 @@ export default function AdminServicesPage() {
     const confirmed = window.confirm(`Permanently remove ${service.name} from catalog?`);
     if (!confirmed) return;
 
-    const nextServices = serviceList.filter((item) => item.id !== serviceId);
-    try {
-      saveStoredServices(nextServices);
-      setServiceList(nextServices);
-      if (editingServiceId === serviceId) closeForm();
-      setSuccess('Service removed.');
-      setError(null);
-    } catch {
-      setError('Operation failed.');
-    }
+    fetch(`/api/admin/services?id=${encodeURIComponent(serviceId)}`, { method: 'DELETE' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { setError(json.error); return; }
+        setServiceList((prev) => prev.filter((item) => item.id !== serviceId));
+        if (editingServiceId === serviceId) closeForm();
+        setSuccess('Service removed.');
+        setError(null);
+      })
+      .catch(() => setError('Delete failed.'));
   };
 
   return (

@@ -2,13 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getCatalogCounts } from '@/lib/catalog-storage';
 
 export default function AdminOverviewPage() {
   const [counts, setCounts] = useState({ doctors: 0, services: 0, submissions: 0 });
 
   useEffect(() => {
-    setCounts(getCatalogCounts());
+    Promise.all([
+      fetch('/api/admin/doctors').then((r) => r.json()),
+      fetch('/api/admin/services').then((r) => r.json()),
+      fetch('/api/admin/bookings').then((r) => r.json())
+    ])
+      .then(([d, s, b]) => {
+        setCounts({
+          doctors: d.doctors?.length ?? 0,
+          services: s.services?.length ?? 0,
+          submissions: b.submissions?.length ?? 0
+        });
+      })
+      .catch(console.error);
   }, []);
 
   return (

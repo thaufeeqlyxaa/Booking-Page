@@ -6,7 +6,8 @@ import { FormEvent, type InputHTMLAttributes, type ReactNode, useEffect, useMemo
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { doctors, type Doctor } from '@/data/doctors';
 import { services, type Service } from '@/data/services';
-import { appendStoredBookingSubmission, getStoredDoctors, getStoredServices } from '@/lib/catalog-storage';
+import { appendStoredBookingSubmission } from '@/lib/catalog-storage';
+import { fetchDoctors, fetchServices, insertBooking } from '@/lib/supabase';
 import { sendBookingEmail } from '@/lib/email';
 
 type BookingStep = 'service' | 'details' | 'review' | 'success';
@@ -48,15 +49,22 @@ export default function Home() {
   const [deliveryMode, setDeliveryMode] = useState<'emailjs' | 'formsubmit' | 'mailto' | null>(null);
 
   useEffect(() => {
-    const nextDoctors = getStoredDoctors();
-    const nextServices = getStoredServices();
+    async function loadCatalog() {
+      const [nextDoctors, nextServices] = await Promise.all([fetchDoctors(), fetchServices()]);
 
-    setDoctorCatalog(nextDoctors);
-    setServiceCatalog(nextServices);
-    setSelectedService((current) => {
-      if (!current) return nextServices[0] ?? null;
-      return nextServices.find((service) => service.id === current.id) ?? nextServices[0] ?? null;
-    });
+      // Fall back to static data if Supabase returns nothing (tables not yet seeded)
+      const finalDoctors = nextDoctors.length > 0 ? nextDoctors : doctors;
+      const finalServices = nextServices.length > 0 ? nextServices : services;
+
+      setDoctorCatalog(finalDoctors);
+      setServiceCatalog(finalServices);
+      setSelectedService((current) => {
+        if (!current) return finalServices[0] ?? null;
+        return finalServices.find((s) => s.id === current.id) ?? finalServices[0] ?? null;
+      });
+    }
+
+    loadCatalog();
   }, []);
 
   const filteredDoctors = useMemo(() => {
@@ -167,10 +175,37 @@ export default function Home() {
 
       console.log('Booking email sent successfully:', result);
 
+      const bookingId = `submission-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const bookingTimestamp = new Date().toISOString();
+
+      // Insert into Supabase (primary record)
+      try {
+        await insertBooking({
+          id: bookingId,
+          created_at: bookingTimestamp,
+          doctor_id: activeDoctor.id,
+          doctor_name: activeDoctor.name,
+          doctor_specialty: activeDoctor.specialty,
+          service_id: selectedService.id,
+          service_name: selectedService.name,
+          service_duration: selectedService.duration,
+          patient_name: details.name.trim(),
+          phone: details.phone.trim(),
+          email: details.email.trim(),
+          age: details.age.trim(),
+          notes: details.notes.trim() || 'None provided',
+          delivery_mode: result.mode,
+          status: 'submitted'
+        });
+      } catch (supabaseError) {
+        console.error('Booking could not be saved to Supabase:', supabaseError);
+      }
+
+      // Also keep a local copy as fallback log
       try {
         appendStoredBookingSubmission({
-          id: `submission-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-          createdAt: new Date().toISOString(),
+          id: bookingId,
+          createdAt: bookingTimestamp,
           doctorId: activeDoctor.id,
           doctorName: activeDoctor.name,
           doctorSpecialty: activeDoctor.specialty,
@@ -186,7 +221,7 @@ export default function Home() {
           status: 'submitted'
         });
       } catch (storageError) {
-        console.error('Booking submission could not be recorded locally:', storageError);
+        console.error('Booking could not be recorded locally:', storageError);
       }
 
       setDeliveryMode(result.mode);
@@ -562,7 +597,8 @@ function DoctorCardRedesigned({
     <motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative flex h-full flex-col overflow-hidden rounded-[30px] border border-black/[0.04] bg-white p-2.5 shadow-[0_2px_18px_rgba(0,0,0,0.02)] transition-all hover:-translate-y-0.5 hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)]"
+      whileHover={{ y: -4, transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } }}
+      className="group relative flex h-full flex-col overflow-hidden rounded-[30px] border border-black/[0.04] bg-white p-2.5 shadow-[0_2px_18px_rgba(0,0,0,0.02)] transition-shadow duration-300 hover:shadow-[0_30px_60px_rgba(0,0,0,0.09)]"
     >
       <button
         type="button"

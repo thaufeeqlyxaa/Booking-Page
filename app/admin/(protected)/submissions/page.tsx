@@ -1,15 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  getStoredBookingSubmissions,
-  removeStoredBookingSubmission,
-  updateStoredBookingSubmission,
-  appendStoredBookingSubmission,
-  type BookingSubmission,
-  getStoredDoctors,
-  getStoredServices
-} from '@/lib/catalog-storage';
+import { type BookingSubmission } from '@/lib/catalog-storage';
+import { type Doctor } from '@/data/doctors';
+import { type Service } from '@/data/services';
 
 const dateFormatter = new Intl.DateTimeFormat('en-IN', {
   dateStyle: 'medium',
@@ -20,13 +14,24 @@ export default function AdminSubmissionsPage() {
   const [submissions, setSubmissions] = useState<BookingSubmission[]>([]);
   const [editingSubmission, setEditingSubmission] = useState<BookingSubmission | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-
-  // For manual add form
-  const doctors = getStoredDoctors();
-  const services = getStoredServices();
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
 
   useEffect(() => {
-    setSubmissions(getStoredBookingSubmissions());
+    fetch('/api/admin/bookings')
+      .then((r) => r.json())
+      .then((json) => { if (json.submissions) setSubmissions(json.submissions); })
+      .catch(console.error);
+
+    fetch('/api/admin/doctors')
+      .then((r) => r.json())
+      .then((json) => { if (json.doctors) setDoctors(json.doctors); })
+      .catch(console.error);
+
+    fetch('/api/admin/services')
+      .then((r) => r.json())
+      .then((json) => { if (json.services) setServices(json.services); })
+      .catch(console.error);
   }, []);
 
   const summary = useMemo(
@@ -42,7 +47,14 @@ export default function AdminSubmissionsPage() {
   const removeSubmission = (submission: BookingSubmission) => {
     const confirmed = window.confirm(`Permanently delete the submission from ${submission.patientName}?`);
     if (!confirmed) return;
-    setSubmissions(removeStoredBookingSubmission(submission.id));
+
+    fetch(`/api/admin/bookings?id=${encodeURIComponent(submission.id)}`, { method: 'DELETE' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { console.error(json.error); return; }
+        setSubmissions((prev) => prev.filter((s) => s.id !== submission.id));
+      })
+      .catch(console.error);
   };
 
   const handleEdit = (submission: BookingSubmission) => {
@@ -50,15 +62,33 @@ export default function AdminSubmissionsPage() {
   };
 
   const saveEdit = (updated: BookingSubmission) => {
-    const next = updateStoredBookingSubmission(updated);
-    setSubmissions(next);
-    setEditingSubmission(null);
+    fetch('/api/admin/bookings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submission: updated })
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { console.error(json.error); return; }
+        setSubmissions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+        setEditingSubmission(null);
+      })
+      .catch(console.error);
   };
 
   const handleManualAdd = (newSub: BookingSubmission) => {
-    const next = appendStoredBookingSubmission(newSub);
-    setSubmissions(next);
-    setShowAddForm(false);
+    fetch('/api/admin/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submission: newSub })
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.error) { console.error(json.error); return; }
+        setSubmissions((prev) => [newSub, ...prev]);
+        setShowAddForm(false);
+      })
+      .catch(console.error);
   };
 
   return (
