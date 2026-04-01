@@ -138,6 +138,7 @@ export default function Home() {
 
   const submitBooking = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitState === 'loading') return;
     if (!activeDoctor || !selectedService) return;
 
     setShowErrors(true);
@@ -212,10 +213,7 @@ export default function Home() {
       <header className="relative z-10 border-b border-black/6 bg-white/72 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8 lg:px-10">
           <div className="flex items-center">
-            <img src="/logo.svg" alt="Lyxaa" className="h-14 object-contain" />
-          </div>
-          <div className="rounded-full border border-black/8 bg-white/80 px-4 py-2 text-xs font-semibold tracking-wide text-ink/60">
-            Minimal booking flow
+            <img src="/logo.svg" alt="Lyxaa" className="h-9 object-contain" />
           </div>
         </div>
       </header>
@@ -515,32 +513,6 @@ const doctorCardMotion = {
   }
 };
 
-function BackgroundOrbits() {
-  return (
-    <div className="dna-shell" aria-hidden="true">
-      <div className="dna-strand left-[-40px] top-[100px]">
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-      </div>
-      <div className="dna-strand bottom-[-30px] right-[-20px]">
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-        <span className="dna-rung" />
-      </div>
-    </div>
-  );
-}
 
 function StepIndicator({ current }: { current: BookingStep }) {
   const currentIndex = ['service', 'details', 'review', 'success'].indexOf(current);
@@ -590,11 +562,14 @@ function DoctorCardRedesigned({
     <motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative flex flex-col overflow-hidden rounded-[32px] bg-white p-2.5 shadow-[0_2px_18px_rgba(0,0,0,0.02)] ring-1 ring-black/[0.03] transition-all hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)]"
-      onClick={onPreview}
+      className="group relative flex h-full flex-col overflow-hidden rounded-[30px] border border-black/[0.04] bg-white p-2.5 shadow-[0_2px_18px_rgba(0,0,0,0.02)] transition-all hover:-translate-y-0.5 hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)]"
     >
-      {/* Top Image Container - Modern Profile Look */}
-      <div className="relative aspect-[4/4.8] w-full overflow-hidden rounded-[26px] bg-[#f7f7f9]">
+      <button
+        type="button"
+        onClick={onPreview}
+        className="relative block aspect-[4/4.8] w-full overflow-hidden rounded-[24px] bg-[#f7f7f9] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25"
+        aria-label={`View ${doctor.name} profile`}
+      >
         <img
           src={doctor.image}
           alt={doctor.name}
@@ -602,53 +577,62 @@ function DoctorCardRedesigned({
             isDefaultVector ? 'p-10 object-contain' : 'object-cover object-center'
           }`}
         />
-        
-        {/* Floating Profile Badge - Updated to use icon-like circle */}
-        <div className="absolute right-4 top-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/40 shadow-sm backdrop-blur-md transition-colors hover:bg-white/60">
-            <UserIconSmall />
-          </div>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-ink shadow-sm">
+          Verified
         </div>
-      </div>
+      </button>
 
-      <div className="flex flex-col px-3 pt-5 pb-2">
-        <h3 className="text-lg font-extrabold tracking-tight text-ink leading-tight">{doctor.name}</h3>
-        <p className="mt-0.5 text-xs font-bold text-ink/35">{doctor.specialty}</p>
+      <div className="flex flex-1 flex-col px-3 pb-2 pt-5">
+        <div>
+          <h3 className="text-lg font-extrabold leading-tight tracking-tight text-ink">{doctor.name}</h3>
+          <p className="mt-0.5 text-xs font-bold text-ink/35">{doctor.specialty}</p>
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink/55">{doctor.bio}</p>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {doctor.topics.slice(0, 2).map((topic) => (
+            <span
+              key={topic}
+              className="rounded-full border border-black/8 bg-black/[0.02] px-2.5 py-1 text-[10px] font-semibold text-ink/60"
+            >
+              {topic}
+            </span>
+          ))}
+        </div>
 
         <div className="mt-4 flex items-center justify-between border-t border-black/[0.03] pt-4">
           <div>
-             <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Experience</p>
-             <p className="mt-0.5 text-[12px] font-black text-ink/65">{doctor.experience}</p>
+            <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Experience</p>
+            <p className="mt-0.5 text-[12px] font-black text-ink/65">{doctor.experience}</p>
           </div>
           <div className="text-right">
-             <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Session</p>
-             <p className="mt-0.5 text-[12px] font-black text-ink/65">₹{doctor.price}</p>
+            <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Session</p>
+            <p className="mt-0.5 text-[12px] font-black text-ink/65">₹{doctor.price}</p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onBook();
-          }}
-          className="mt-5 w-full rounded-2xl bg-black py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:scale-[0.98] active:scale-95"
-        >
-          Book Now
-        </button>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onPreview}
+            className="rounded-2xl border border-black/10 bg-white px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-ink/70 transition hover:border-black/20 hover:bg-black/[0.02]"
+          >
+            View Profile
+          </button>
+          <button
+            type="button"
+            onClick={onBook}
+            className="rounded-2xl bg-black px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:scale-[0.99] active:scale-95"
+          >
+            Book Now
+          </button>
+        </div>
       </div>
     </motion.article>
   );
 }
 
-function UserIconSmall() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
 
 function DoctorPreviewModal({
   doctor,
@@ -717,7 +701,6 @@ function DoctorPreviewModal({
               <MetricBlock label="Experience" value={doctor.experience} />
               <MetricBlock label="Session Fee" value={`₹ ${doctor.price}`} />
               <MetricBlock label="Languages" value={doctor.languages} />
-              <MetricBlock label="Availability" value={doctor.hours} />
             </div>
 
             <div className="space-y-4">
@@ -807,14 +790,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ProfileMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-b border-black/6 pb-3">
-      <dt className="text-[11px] uppercase tracking-[0.28em] text-mist">{label}</dt>
-      <dd className="mt-2 text-sm font-medium text-ink">{value}</dd>
-    </div>
-  );
-}
 
 function InlineNotice({ children }: { children: ReactNode }) {
   return <p className="rounded-[18px] bg-black/5 px-4 py-3 text-sm text-ink">{children}</p>;
@@ -829,18 +804,6 @@ function SearchIcon() {
   );
 }
 
-function EyeIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M2.4 12C4.3 8.7 7.6 6.5 12 6.5S19.7 8.7 21.6 12C19.7 15.3 16.4 17.5 12 17.5S4.3 15.3 2.4 12Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-    </svg>
-  );
-}
 
 function MetricBlock({ label, value }: { label: string; value: string }) {
   return (

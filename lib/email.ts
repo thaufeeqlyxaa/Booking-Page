@@ -19,15 +19,34 @@ const TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 const RECIPIENT_EMAIL = process.env.NEXT_PUBLIC_BOOKING_RECIPIENT_EMAIL || 'thaufeeq.lyxaa@gmail.com';
 
+function validateEmailJSConfig(): boolean {
+  const missing: string[] = [];
+  if (!SERVICE_ID) missing.push('NEXT_PUBLIC_EMAILJS_SERVICE_ID');
+  if (!TEMPLATE_ID) missing.push('NEXT_PUBLIC_EMAILJS_TEMPLATE_ID');
+  if (!PUBLIC_KEY) missing.push('NEXT_PUBLIC_EMAILJS_PUBLIC_KEY');
+
+  if (missing.length > 0) {
+    console.warn(
+      '[EmailJS] Missing environment variables — falling back to FormSubmit.\n' +
+      'Missing: ' + missing.join(', ') + '\n' +
+      'Set these in Netlify → Site settings → Environment variables.\n' +
+      'Also ensure this domain is added to the allowed list in your EmailJS account.'
+    );
+    return false;
+  }
+  return true;
+}
+
+// Template keys sent to EmailJS must exactly match the template variables:
+// name, phone, email, age, doctor, service, notes
 function buildTemplateParams(payload: BookingPayload) {
   return {
-    to_email: RECIPIENT_EMAIL,
-    service: payload.service,
-    doctor: payload.doctor,
     name: payload.name,
     phone: payload.phone,
     email: payload.email,
     age: payload.age,
+    doctor: payload.doctor,
+    service: payload.service,
     notes: payload.notes || 'None provided'
   };
 }
@@ -72,7 +91,7 @@ async function sendWithFormSubmit(payload: BookingPayload) {
 }
 
 export async function sendBookingEmail(payload: BookingPayload): Promise<BookingSendResult> {
-  if (SERVICE_ID && TEMPLATE_ID && PUBLIC_KEY) {
+  if (validateEmailJSConfig() && SERVICE_ID && TEMPLATE_ID && PUBLIC_KEY) {
     await emailjs.send(SERVICE_ID, TEMPLATE_ID, buildTemplateParams(payload), PUBLIC_KEY);
     return { mode: 'emailjs' };
   }
