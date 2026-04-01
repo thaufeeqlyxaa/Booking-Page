@@ -26,7 +26,10 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ doctors: data ?? [] });
+  // Map image_url → image for the frontend Doctor type
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doctors = (data ?? []).map((row: any) => ({ ...row, image: row.image_url ?? row.image ?? '/images/doctors/doctor-1.svg' }));
+  return NextResponse.json({ doctors });
 }
 
 // POST /api/admin/doctors — upsert (create or update)
@@ -44,10 +47,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
+  // Map Doctor type → Supabase row (image → image_url)
+  const { image, ...rest } = doctor;
+  const dbRow = { ...rest, image_url: image };
+
   const db = createServerClient();
   const { data, error } = await db
     .from('doctors')
-    .upsert(doctor, { onConflict: 'id' })
+    .upsert(dbRow, { onConflict: 'id' })
     .select()
     .single();
 
@@ -55,7 +62,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ doctor: data });
+  // Map back: image_url → image
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any;
+  return NextResponse.json({ doctor: { ...row, image: row.image_url } });
 }
 
 // DELETE /api/admin/doctors?id=... — remove one

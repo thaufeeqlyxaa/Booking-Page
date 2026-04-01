@@ -183,17 +183,20 @@ export default function Home() {
         await insertBooking({
           id: bookingId,
           created_at: bookingTimestamp,
-          doctor_id: activeDoctor.id,
-          doctor_name: activeDoctor.name,
-          doctor_specialty: activeDoctor.specialty,
-          service_id: selectedService.id,
-          service_name: selectedService.name,
-          service_duration: selectedService.duration,
-          patient_name: details.name.trim(),
+          // original schema column
+          name: details.name.trim(),
           phone: details.phone.trim(),
           email: details.email.trim(),
           age: details.age.trim(),
           notes: details.notes.trim() || 'None provided',
+          doctor_id: activeDoctor.id,
+          service_id: selectedService.id,
+          // extended columns (present after ALTER TABLE migration)
+          patient_name: details.name.trim(),
+          doctor_name: activeDoctor.name,
+          doctor_specialty: activeDoctor.specialty,
+          service_name: selectedService.name,
+          service_duration: selectedService.duration,
           delivery_mode: result.mode,
           status: 'submitted'
         });

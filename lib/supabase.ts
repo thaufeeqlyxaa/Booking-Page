@@ -5,34 +5,42 @@ import { type Service } from '@/data/services';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Singleton — prevents multiple GoTrueClient instances in dev HMR
+const globalForSupabase = globalThis as typeof globalThis & { _supabase?: ReturnType<typeof createClient> };
+export const supabase = globalForSupabase._supabase ?? createClient(supabaseUrl, supabaseAnonKey);
+if (process.env.NODE_ENV !== 'production') globalForSupabase._supabase = supabase;
 
-// ─── Booking row (snake_case matches the SQL schema) ────────────────────────
+// ─── Booking row — matches actual Supabase schema ───────────────────────────
+// NOTE: bookings.name = patient name (existing column)
+// Extended columns (patient_name, doctor_name, etc.) added via ALTER TABLE
 
 export type BookingRow = {
   id: string;
   created_at: string;
-  doctor_id: string;
-  doctor_name: string;
-  doctor_specialty: string;
-  service_id: string;
-  service_name: string;
-  service_duration: string;
-  patient_name: string;
+  // original schema columns
+  name: string;           // patient name — original column
   phone: string;
   email: string;
   age: string;
   notes: string;
-  delivery_mode: 'emailjs' | 'formsubmit' | 'mailto';
-  status: 'submitted';
+  doctor_id: string;
+  service_id: string;
+  // extended columns (added via ALTER TABLE)
+  patient_name?: string;
+  doctor_name?: string;
+  doctor_specialty?: string;
+  service_name?: string;
+  service_duration?: string;
+  delivery_mode?: 'emailjs' | 'formsubmit' | 'mailto';
+  status?: 'submitted';
 };
 
-// ─── Public fetch helpers (use anon key + RLS) ───────────────────────────────
+// ─── Public fetch helpers (anon key + RLS) ──────────────────────────────────
 
 export async function fetchDoctors(): Promise<Doctor[]> {
   const { data, error } = await supabase
     .from('doctors')
-    .select('id, name, specialty, experience, bio, image, hours, topics, languages, price')
+    .select('*')
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -40,13 +48,26 @@ export async function fetchDoctors(): Promise<Doctor[]> {
     return [];
   }
 
-  return (data ?? []) as Doctor[];
+  // Map Supabase row → Doctor type, handling column name differences
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((row: any): Doctor => ({
+    id: row.id,
+    name: row.name,
+    specialty: row.specialty ?? '',
+    experience: row.experience ?? '',
+    bio: row.bio ?? '',
+    image: row.image_url ?? row.image ?? '/images/doctors/doctor-1.svg',
+    hours: row.hours ?? '0+ therapy hours',
+    topics: Array.isArray(row.topics) ? row.topics : [],
+    languages: row.languages ?? 'English',
+    price: row.price ?? 1000
+  }));
 }
 
 export async function fetchServices(): Promise<Service[]> {
   const { data, error } = await supabase
     .from('services')
-    .select('id, name, description, duration, focus, price')
+    .select('*')
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -54,7 +75,15 @@ export async function fetchServices(): Promise<Service[]> {
     return [];
   }
 
-  return (data ?? []) as Service[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((row: any): Service => ({
+    id: row.id,
+    name: row.name,
+    description: row.description ?? '',
+    duration: row.duration ?? '',
+    focus: row.focus ?? '',
+    price: row.price ?? 1000
+  }));
 }
 
 export async function insertBooking(row: BookingRow): Promise<{ error: string | null }> {

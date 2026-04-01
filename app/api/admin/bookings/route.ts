@@ -11,43 +11,46 @@ function isAuthorized(): boolean {
   return verifyAdminSessionToken(token);
 }
 
-// Map Supabase snake_case row → TypeScript camelCase BookingSubmission
-function rowToSubmission(row: BookingRow): BookingSubmission {
+// Map Supabase row → TypeScript BookingSubmission
+// Handles both original schema (name) and extended schema (patient_name, doctor_name, etc.)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToSubmission(row: any): BookingSubmission {
   return {
     id: row.id,
     createdAt: row.created_at,
-    doctorId: row.doctor_id,
-    doctorName: row.doctor_name,
-    doctorSpecialty: row.doctor_specialty,
-    serviceId: row.service_id,
-    serviceName: row.service_name,
-    serviceDuration: row.service_duration,
-    patientName: row.patient_name,
-    phone: row.phone,
-    email: row.email,
-    age: row.age,
-    notes: row.notes,
-    deliveryMode: row.delivery_mode,
+    doctorId: row.doctor_id ?? '',
+    doctorName: row.doctor_name ?? '',
+    doctorSpecialty: row.doctor_specialty ?? '',
+    serviceId: row.service_id ?? '',
+    serviceName: row.service_name ?? '',
+    serviceDuration: row.service_duration ?? '',
+    patientName: row.patient_name ?? row.name ?? '',
+    phone: row.phone ?? '',
+    email: row.email ?? '',
+    age: row.age ?? '',
+    notes: row.notes ?? '',
+    deliveryMode: row.delivery_mode ?? 'mailto',
     status: 'submitted'
   };
 }
 
-// Map BookingSubmission → Supabase snake_case row
+// Map BookingSubmission → Supabase row (writes both name and patient_name)
 function submissionToRow(sub: BookingSubmission): BookingRow {
   return {
     id: sub.id,
     created_at: sub.createdAt,
+    name: sub.patientName,
     doctor_id: sub.doctorId,
-    doctor_name: sub.doctorName,
-    doctor_specialty: sub.doctorSpecialty,
     service_id: sub.serviceId,
-    service_name: sub.serviceName,
-    service_duration: sub.serviceDuration,
-    patient_name: sub.patientName,
     phone: sub.phone,
     email: sub.email,
     age: sub.age,
     notes: sub.notes,
+    patient_name: sub.patientName,
+    doctor_name: sub.doctorName,
+    doctor_specialty: sub.doctorSpecialty,
+    service_name: sub.serviceName,
+    service_duration: sub.serviceDuration,
     delivery_mode: sub.deliveryMode,
     status: 'submitted'
   };
