@@ -1,9 +1,25 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { type BookingSubmission } from '@/lib/catalog-storage';
-import { type Doctor } from '@/data/doctors';
-import { type Service } from '@/data/services';
+import { type Doctor, type Service } from '@/lib/supabase';
+
+type BookingSubmission = {
+  id: string;
+  createdAt: string;
+  doctorId: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  serviceId: string;
+  serviceName: string;
+  serviceDuration: string;
+  patientName: string;
+  phone: string;
+  email: string;
+  age: string;
+  notes: string;
+  deliveryMode: 'emailjs' | 'formsubmit' | 'mailto';
+  status: 'submitted';
+};
 
 const dateFormatter = new Intl.DateTimeFormat('en-IN', {
   dateStyle: 'medium',

@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { type Doctor } from '@/data/doctors';
-import { type Service } from '@/data/services';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -10,29 +8,38 @@ const globalForSupabase = globalThis as typeof globalThis & { _supabase?: Return
 export const supabase = globalForSupabase._supabase ?? createClient(supabaseUrl, supabaseAnonKey);
 if (process.env.NODE_ENV !== 'production') globalForSupabase._supabase = supabase;
 
-// ─── Booking row — matches actual Supabase schema ───────────────────────────
-// NOTE: bookings.name = patient name (existing column)
-// Extended columns (patient_name, doctor_name, etc.) added via ALTER TABLE
+// ─── Types ─────────────────────────────────────────────────────────────────────
+
+export type Doctor = {
+  id: string;
+  name: string;
+  specialty: string;
+  experience: string;
+  bio: string;
+  image: string;       // mapped from image_url in DB
+  hours: string;
+  topics: string[];
+  languages: string;
+  price: number;
+};
+
+export type Service = {
+  id: string;
+  name: string;
+  description: string;
+  duration: string;
+  focus: string;
+  price: number;
+};
 
 export type BookingRow = {
-  id: string;
-  created_at: string;
-  // original schema columns
-  name: string;           // patient name — original column
+  name: string;
   phone: string;
   email: string;
   age: string;
   notes: string;
   doctor_id: string;
   service_id: string;
-  // extended columns (added via ALTER TABLE)
-  patient_name?: string;
-  doctor_name?: string;
-  doctor_specialty?: string;
-  service_name?: string;
-  service_duration?: string;
-  delivery_mode?: 'emailjs' | 'formsubmit' | 'mailto';
-  status?: 'submitted';
 };
 
 // ─── Public fetch helpers (anon key + RLS) ──────────────────────────────────
@@ -48,16 +55,15 @@ export async function fetchDoctors(): Promise<Doctor[]> {
     return [];
   }
 
-  // Map Supabase row → Doctor type, handling column name differences
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((row: any): Doctor => ({
     id: row.id,
-    name: row.name,
+    name: row.name ?? '',
     specialty: row.specialty ?? '',
     experience: row.experience ?? '',
     bio: row.bio ?? '',
-    image: row.image_url ?? row.image ?? '/images/doctors/doctor-1.svg',
-    hours: row.hours ?? '0+ therapy hours',
+    image: row.image_url ?? '/images/doctors/doctor-1.svg',
+    hours: row.hours ?? '',
     topics: Array.isArray(row.topics) ? row.topics : [],
     languages: row.languages ?? 'English',
     price: row.price ?? 1000
@@ -78,7 +84,7 @@ export async function fetchServices(): Promise<Service[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((row: any): Service => ({
     id: row.id,
-    name: row.name,
+    name: row.name ?? '',
     description: row.description ?? '',
     duration: row.duration ?? '',
     focus: row.focus ?? '',
@@ -87,7 +93,8 @@ export async function fetchServices(): Promise<Service[]> {
 }
 
 export async function insertBooking(row: BookingRow): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('bookings').insert(row);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await supabase.from('bookings').insert(row as any);
   if (error) {
     console.error('[supabase] insertBooking error:', error.message);
     return { error: error.message };

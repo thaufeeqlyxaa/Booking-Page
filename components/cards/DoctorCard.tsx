@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { Doctor } from '@/data/doctors';
+import { type Doctor } from '@/lib/supabase';
 
 const doctorVariants = {
   hidden: { opacity: 0, y: 32 },

@@ -4,10 +4,7 @@
 
 import { FormEvent, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { doctors, type Doctor } from '@/data/doctors';
-import { services, type Service } from '@/data/services';
-import { appendStoredBookingSubmission } from '@/lib/catalog-storage';
-import { fetchDoctors, fetchServices, insertBooking } from '@/lib/supabase';
+import { type Doctor, type Service, insertBooking } from '@/lib/supabase';
 import { sendBookingEmail } from '@/lib/email';
 
 type BookingStep = 'service' | 'details' | 'review' | 'success';
@@ -36,11 +33,12 @@ const panelMotion = {
 
 export default function Home() {
   const [query, setQuery] = useState('');
-  const [doctorCatalog, setDoctorCatalog] = useState<Doctor[]>(doctors);
-  const [serviceCatalog, setServiceCatalog] = useState<Service[]>(services);
+  const [doctorCatalog, setDoctorCatalog] = useState<Doctor[]>([]);
+  const [serviceCatalog, setServiceCatalog] = useState<Service[]>([]);
   const [activeDoctor, setActiveDoctor] = useState<Doctor | null>(null);
   const [previewDoctor, setPreviewDoctor] = useState<Doctor | null>(null);
-  const [selectedService, setSelectedService] = useState<Service | null>(services[0] ?? null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [step, setStep] = useState<BookingStep>('service');
   const [details, setDetails] = useState<BookingDetails>(initialDetails);
   const [showErrors, setShowErrors] = useState(false);
@@ -49,22 +47,20 @@ export default function Home() {
   const [deliveryMode, setDeliveryMode] = useState<'emailjs' | 'formsubmit' | 'mailto' | null>(null);
 
   useEffect(() => {
-    async function loadCatalog() {
-      const [nextDoctors, nextServices] = await Promise.all([fetchDoctors(), fetchServices()]);
-
-      // Fall back to static data if Supabase returns nothing (tables not yet seeded)
-      const finalDoctors = nextDoctors.length > 0 ? nextDoctors : doctors;
-      const finalServices = nextServices.length > 0 ? nextServices : services;
-
-      setDoctorCatalog(finalDoctors);
-      setServiceCatalog(finalServices);
-      setSelectedService((current) => {
-        if (!current) return finalServices[0] ?? null;
-        return finalServices.find((s) => s.id === current.id) ?? finalServices[0] ?? null;
-      });
-    }
-
-    loadCatalog();
+    fetch('/api/catalog')
+      .then((r) => r.json())
+      .then((json) => {
+        const nextDoctors: Doctor[] = json.doctors ?? [];
+        const nextServices: Service[] = json.services ?? [];
+        setDoctorCatalog(nextDoctors);
+        setServiceCatalog(nextServices);
+        setSelectedService((current) => {
+          if (!current) return nextServices[0] ?? null;
+          return nextServices.find((s) => s.id === current.id) ?? nextServices[0] ?? null;
+        });
+      })
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
   }, []);
 
   const filteredDoctors = useMemo(() => {
@@ -175,56 +171,19 @@ export default function Home() {
 
       console.log('Booking email sent successfully:', result);
 
-      const bookingId = `submission-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-      const bookingTimestamp = new Date().toISOString();
-
-      // Insert into Supabase (primary record)
+      // Insert into Supabase
       try {
         await insertBooking({
-          id: bookingId,
-          created_at: bookingTimestamp,
-          // original schema column
           name: details.name.trim(),
           phone: details.phone.trim(),
           email: details.email.trim(),
           age: details.age.trim(),
           notes: details.notes.trim() || 'None provided',
           doctor_id: activeDoctor.id,
-          service_id: selectedService.id,
-          // extended columns (present after ALTER TABLE migration)
-          patient_name: details.name.trim(),
-          doctor_name: activeDoctor.name,
-          doctor_specialty: activeDoctor.specialty,
-          service_name: selectedService.name,
-          service_duration: selectedService.duration,
-          delivery_mode: result.mode,
-          status: 'submitted'
+          service_id: selectedService.id
         });
       } catch (supabaseError) {
         console.error('Booking could not be saved to Supabase:', supabaseError);
-      }
-
-      // Also keep a local copy as fallback log
-      try {
-        appendStoredBookingSubmission({
-          id: bookingId,
-          createdAt: bookingTimestamp,
-          doctorId: activeDoctor.id,
-          doctorName: activeDoctor.name,
-          doctorSpecialty: activeDoctor.specialty,
-          serviceId: selectedService.id,
-          serviceName: selectedService.name,
-          serviceDuration: selectedService.duration,
-          patientName: details.name.trim(),
-          phone: details.phone.trim(),
-          email: details.email.trim(),
-          age: details.age.trim(),
-          notes: details.notes.trim() || 'None provided',
-          deliveryMode: result.mode,
-          status: 'submitted'
-        });
-      } catch (storageError) {
-        console.error('Booking could not be recorded locally:', storageError);
       }
 
       setDeliveryMode(result.mode);

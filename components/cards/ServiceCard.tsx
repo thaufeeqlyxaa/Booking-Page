@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Service } from '@/data/services';
+import { type Service } from '@/lib/supabase';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 24 },

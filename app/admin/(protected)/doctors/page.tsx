@@ -7,11 +7,10 @@ import {
   FormEvent,
   type InputHTMLAttributes,
   useEffect,
-  useMemo,
   useRef,
   useState
 } from 'react';
-import { type Doctor } from '@/data/doctors';
+import { type Doctor } from '@/lib/supabase';
 
 type DoctorFormState = {
   image: string;
@@ -38,14 +37,6 @@ const initialDoctorForm: DoctorFormState = {
   languages: '',
   price: ''
 };
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
 
 function readImageAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -81,7 +72,6 @@ export default function AdminDoctorsPage() {
   }, []);
 
   const isEditing = editingDoctorId !== null;
-  const nextCount = useMemo(() => doctorList.length + 1, [doctorList.length]);
 
   const updateField = (field: keyof DoctorFormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -172,7 +162,7 @@ export default function AdminDoctorsPage() {
     }
 
     const nextDoctor: Doctor = {
-      id: editingDoctorId ?? `${slugify(form.name) || `doc-${nextCount}`}-${Date.now().toString(36)}`,
+      id: editingDoctorId ?? '',  // empty = new doctor, Supabase generates UUID
       image: form.image.trim() || defaultImage,
       name: form.name.trim(),
       specialty: form.specialty.trim(),
@@ -192,10 +182,11 @@ export default function AdminDoctorsPage() {
       .then((r) => r.json())
       .then((json) => {
         if (json.error) { setError(json.error); return; }
+        const saved = json.doctor as Doctor;
         setDoctorList((prev) =>
           isEditing
-            ? prev.map((d) => (d.id === editingDoctorId ? nextDoctor : d))
-            : [nextDoctor, ...prev]
+            ? prev.map((d) => (d.id === editingDoctorId ? saved : d))
+            : [saved, ...prev]
         );
         setSuccess(isEditing ? 'Doctor profile updated.' : 'New doctor added.');
         setShowForm(false);

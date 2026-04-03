@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, type InputHTMLAttributes, useEffect, useState } from 'react';
-import { type Service } from '@/data/services';
+import { type Service } from '@/lib/supabase';
 
 type ServiceFormState = {
   name: string;
@@ -85,7 +85,7 @@ export default function AdminServicesPage() {
     }
 
     const nextService: Service = {
-      id: editingServiceId ?? `srv-${Date.now().toString(36)}`,
+      id: editingServiceId ?? '',  // empty = new service, Supabase generates UUID
       name: form.name.trim(),
       description: form.description.trim(),
       duration: form.duration.trim(),
@@ -101,10 +101,11 @@ export default function AdminServicesPage() {
       .then((r) => r.json())
       .then((json) => {
         if (json.error) { setError(json.error); return; }
+        const saved = json.service as Service;
         setServiceList((prev) =>
           isEditing
-            ? prev.map((s) => (s.id === editingServiceId ? nextService : s))
-            : [nextService, ...prev]
+            ? prev.map((s) => (s.id === editingServiceId ? saved : s))
+            : [saved, ...prev]
         );
         setSuccess(isEditing ? 'Service updated.' : 'New service added.');
         setShowForm(false);

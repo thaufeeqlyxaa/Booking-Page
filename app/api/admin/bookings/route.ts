@@ -2,8 +2,25 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin-auth';
 import { createServerClient } from '@/lib/supabase-server';
-import { type BookingSubmission } from '@/lib/catalog-storage';
-import { type BookingRow } from '@/lib/supabase';
+
+// BookingSubmission type — used by admin UI (camelCase)
+export type BookingSubmission = {
+  id: string;
+  createdAt: string;
+  doctorId: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  serviceId: string;
+  serviceName: string;
+  serviceDuration: string;
+  patientName: string;
+  phone: string;
+  email: string;
+  age: string;
+  notes: string;
+  deliveryMode: 'emailjs' | 'formsubmit' | 'mailto';
+  status: 'submitted';
+};
 
 function isAuthorized(): boolean {
   const cookieStore = cookies();
@@ -11,72 +28,58 @@ function isAuthorized(): boolean {
   return verifyAdminSessionToken(token);
 }
 
-// Map Supabase row → TypeScript BookingSubmission
-// Handles both original schema (name) and extended schema (patient_name, doctor_name, etc.)
+// Map Supabase row → BookingSubmission, joining doctor/service names
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rowToSubmission(row: any): BookingSubmission {
+function rowToSubmission(row: any, doctors: any[], services: any[]): BookingSubmission {
+  const doctor = doctors.find((d) => d.id === row.doctor_id);
+  const service = services.find((s) => s.id === row.service_id);
+
   return {
     id: row.id,
     createdAt: row.created_at,
     doctorId: row.doctor_id ?? '',
-    doctorName: row.doctor_name ?? '',
-    doctorSpecialty: row.doctor_specialty ?? '',
+    doctorName: doctor?.name ?? '',
+    doctorSpecialty: doctor?.specialty ?? '',
     serviceId: row.service_id ?? '',
-    serviceName: row.service_name ?? '',
-    serviceDuration: row.service_duration ?? '',
-    patientName: row.patient_name ?? row.name ?? '',
+    serviceName: service?.name ?? '',
+    serviceDuration: service?.duration ?? '',
+    patientName: row.name ?? '',
     phone: row.phone ?? '',
     email: row.email ?? '',
     age: row.age ?? '',
     notes: row.notes ?? '',
-    deliveryMode: row.delivery_mode ?? 'mailto',
+    deliveryMode: 'mailto',
     status: 'submitted'
   };
 }
 
-// Map BookingSubmission → Supabase row (writes both name and patient_name)
-function submissionToRow(sub: BookingSubmission): BookingRow {
-  return {
-    id: sub.id,
-    created_at: sub.createdAt,
-    name: sub.patientName,
-    doctor_id: sub.doctorId,
-    service_id: sub.serviceId,
-    phone: sub.phone,
-    email: sub.email,
-    age: sub.age,
-    notes: sub.notes,
-    patient_name: sub.patientName,
-    doctor_name: sub.doctorName,
-    doctor_specialty: sub.doctorSpecialty,
-    service_name: sub.serviceName,
-    service_duration: sub.serviceDuration,
-    delivery_mode: sub.deliveryMode,
-    status: 'submitted'
-  };
-}
-
-// GET /api/admin/bookings — list all (service_role bypasses RLS)
+// GET /api/admin/bookings — list all
 export async function GET() {
   if (!isAuthorized()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const db = createServerClient();
-  const { data, error } = await db
-    .from('bookings')
-    .select('*')
-    .order('created_at', { ascending: false });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // Fetch bookings + doctors + services to join names
+  const [bookingsRes, doctorsRes, servicesRes] = await Promise.all([
+    db.from('bookings').select('*').order('created_at', { ascending: false }),
+    db.from('doctors').select('id, name, specialty'),
+    db.from('services').select('id, name, duration')
+  ]);
+
+  if (bookingsRes.error) {
+    return NextResponse.json({ error: bookingsRes.error.message }, { status: 500 });
   }
 
-  const submissions = (data ?? []).map((row) => rowToSubmission(row as BookingRow));
+  const doctors = doctorsRes.data ?? [];
+  const services = servicesRes.data ?? [];
+  const submissions = (bookingsRes.data ?? []).map((row) => rowToSubmission(row, doctors, services));
+
   return NextResponse.json({ submissions });
 }
 
-// POST /api/admin/bookings — manual add (upsert)
+// POST /api/admin/bookings — manual add
 export async function POST(request: NextRequest) {
   if (!isAuthorized()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -86,24 +89,27 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     submission = body.submission;
-    if (!submission?.doctorName || !submission?.patientName) throw new Error('Invalid payload');
+    if (!submission?.patientName) throw new Error('Invalid payload');
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const row = submissionToRow(submission);
   const db = createServerClient();
-  const { data, error } = await db
-    .from('bookings')
-    .upsert(row, { onConflict: 'id' })
-    .select()
-    .single();
+  const { error } = await db.from('bookings').insert({
+    name: submission.patientName,
+    phone: submission.phone,
+    email: submission.email,
+    age: submission.age,
+    notes: submission.notes,
+    doctor_id: submission.doctorId,
+    service_id: submission.serviceId
+  });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ submission: rowToSubmission(data as BookingRow) });
+  return NextResponse.json({ success: true });
 }
 
 // PUT /api/admin/bookings — update one
@@ -121,20 +127,25 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const row = submissionToRow(submission);
   const db = createServerClient();
-  const { data, error } = await db
+  const { error } = await db
     .from('bookings')
-    .update(row)
-    .eq('id', submission.id)
-    .select()
-    .single();
+    .update({
+      name: submission.patientName,
+      phone: submission.phone,
+      email: submission.email,
+      age: submission.age,
+      notes: submission.notes,
+      doctor_id: submission.doctorId,
+      service_id: submission.serviceId
+    })
+    .eq('id', submission.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ submission: rowToSubmission(data as BookingRow) });
+  return NextResponse.json({ success: true });
 }
 
 // DELETE /api/admin/bookings?id=... — remove one
