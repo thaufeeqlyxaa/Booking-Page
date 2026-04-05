@@ -17,6 +17,7 @@ type DoctorFormState = {
   experience: string;
   bio: string;
   price: string;
+  topics: string;
   file: File | null;
 };
 
@@ -29,6 +30,7 @@ const initialDoctorForm: DoctorFormState = {
   experience: '',
   bio: '',
   price: '',
+  topics: '',
   file: null
 };
 
@@ -81,6 +83,7 @@ export default function AdminDoctorsPage() {
       experience: doctor.experience,
       bio: doctor.bio,
       price: String(doctor.price),
+      topics: (doctor.topics ?? []).join('\n'),
       file: null
     });
     setEditingDoctorId(doctor.id);
@@ -124,6 +127,11 @@ export default function AdminDoctorsPage() {
       return;
     }
 
+    const topicsArray = form.topics
+      .split(/[,\n]/)
+      .map((t: string) => t.trim())
+      .filter(Boolean);
+
     const payload = {
       name: form.name.trim(),
       specialty: form.specialty.trim(),
@@ -131,6 +139,7 @@ export default function AdminDoctorsPage() {
       bio: form.bio.trim(),
       image_url: finalImageUrl,
       price,
+      topics: topicsArray,
     };
 
     if (isEditing && editingDoctorId) {
@@ -232,6 +241,7 @@ export default function AdminDoctorsPage() {
                 </div>
               </div>
               <Textarea label="Bio" value={form.bio} onChange={v => updateField('bio', v)} placeholder="Description of the doctor." />
+              <Textarea label="Focus Tags (one per line)" value={form.topics} onChange={v => updateField('topics', v)} placeholder={"Anxiety & Stress\nCBT Therapy\nDepression"} />
 
               <div className="flex items-center justify-between border-t border-black/[0.05] pt-6">
                 {error && <p className="text-sm font-bold text-red-500 mr-4">{error}</p>}

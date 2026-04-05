@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { FormEvent, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, type InputHTMLAttributes, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { fetchDoctors, fetchServices, insertBooking, type DbDoctor, type DbService } from '@/lib/supabase-api';
 import { sendBookingEmail } from '@/lib/email';
@@ -238,7 +238,7 @@ export default function Home() {
                   initial="hidden"
                   whileInView="visible"
                   viewport={{ once: true, amount: 0.2 }}
-                  className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+                  className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3"
                 >
                   {filteredDoctors.map((doctor) => (
                     <DoctorCardRedesigned
@@ -530,6 +530,17 @@ function StepIndicator({ current }: { current: BookingStep }) {
   );
 }
 
+/** Hook: rotates through an array of strings every `interval` ms */
+function useRotatingTag(tags: string[], interval = 2500): string {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (tags.length <= 1) return;
+    const id = setInterval(() => setIndex((i) => (i + 1) % tags.length), interval);
+    return () => clearInterval(id);
+  }, [tags, interval]);
+  return tags.length > 0 ? tags[index % tags.length] : '';
+}
+
 function DoctorCardRedesigned({
   doctor,
   onPreview,
@@ -544,76 +555,75 @@ function DoctorCardRedesigned({
     doctor.image.includes('/images/doctors/') ||
     doctor.image.startsWith('data:image/svg+xml');
 
+  const activeTag = useRotatingTag(doctor.topics);
+
   return (
     <motion.article
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative flex h-full flex-col overflow-hidden rounded-[30px] border border-black/[0.04] bg-white p-2.5 shadow-[0_2px_18px_rgba(0,0,0,0.02)] transition-all hover:-translate-y-0.5 hover:shadow-[0_30px_60px_rgba(0,0,0,0.08)]"
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.3 }}
+      className="group relative flex h-full flex-col overflow-hidden rounded-[20px] bg-white shadow-sm transition-all duration-300 hover:shadow-xl"
     >
-      <button
-        type="button"
-        onClick={onPreview}
-        className="relative block aspect-[4/4.8] w-full overflow-hidden rounded-[24px] bg-[#f7f7f9] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25"
-        aria-label={`View ${doctor.name} profile`}
-      >
+      {/* Image */}
+      <div className="relative h-[220px] w-full overflow-hidden bg-[#f5f5f7]">
         <img
           src={doctor.image}
           alt={doctor.name}
-          className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-110 ${
-            isDefaultVector ? 'p-10 object-contain' : 'object-cover object-center'
+          className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-105 ${
+            isDefaultVector ? 'p-10 object-contain' : 'object-cover object-top'
           }`}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-transparent" />
-        <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold text-ink shadow-sm">
-          Verified
-        </div>
-      </button>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+      </div>
 
-      <div className="flex flex-1 flex-col px-3 pb-2 pt-5">
-        <div>
-          <h3 className="text-lg font-extrabold leading-tight tracking-tight text-ink">{doctor.name}</h3>
-          <p className="mt-0.5 text-xs font-bold text-ink/35">{doctor.specialty}</p>
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink/55">{doctor.bio}</p>
-        </div>
+      {/* Content */}
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="text-[15px] font-bold leading-snug tracking-tight text-ink">{doctor.name}</h3>
+        <p className="mt-0.5 text-xs text-ink/40">{doctor.specialty}</p>
 
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {doctor.topics.slice(0, 2).map((topic) => (
-            <span
-              key={topic}
-              className="rounded-full border border-black/8 bg-black/[0.02] px-2.5 py-1 text-[10px] font-semibold text-ink/60"
-            >
-              {topic}
-            </span>
-          ))}
-        </div>
-
-        <div className="mt-4 flex items-center justify-between border-t border-black/[0.03] pt-4">
-          <div>
-            <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Experience</p>
-            <p className="mt-0.5 text-[12px] font-black text-ink/65">{doctor.experience}</p>
+        {/* Rotating focus tag */}
+        {doctor.topics.length > 0 && (
+          <div className="mt-3 h-[26px] overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={activeTag}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.25 }}
+                className="inline-block rounded-full bg-black/5 px-3 py-1 text-xs text-ink/50"
+              >
+                {activeTag}
+              </motion.span>
+            </AnimatePresence>
           </div>
-          <div className="text-right">
-            <p className="text-[8px] font-black uppercase tracking-widest text-ink/20">Session</p>
-            <p className="mt-0.5 text-[12px] font-black text-ink/65">₹{doctor.price}</p>
-          </div>
+        )}
+
+        {/* Price | Experience */}
+        <div className="mt-auto flex items-center gap-2 pt-4 text-xs text-ink/40">
+          <span className="font-semibold text-ink/70">₹{doctor.price}</span>
+          <span className="text-ink/15">|</span>
+          <span>{doctor.experience}</span>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onPreview}
-            className="rounded-2xl border border-black/10 bg-white px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-ink/70 transition hover:border-black/20 hover:bg-black/[0.02]"
-          >
-            View Profile
-          </button>
-          <button
-            type="button"
-            onClick={onBook}
-            className="rounded-2xl bg-black px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:scale-[0.99] active:scale-95"
-          >
-            Book Now
-          </button>
-        </div>
+        {/* Book button */}
+        <button
+          type="button"
+          onClick={onBook}
+          className="mt-3 h-10 w-full rounded-full bg-black text-xs font-semibold tracking-wide text-white transition-all active:scale-[0.97]"
+        >
+          Book Now
+        </button>
+
+        {/* Quick view link */}
+        <button
+          type="button"
+          onClick={onPreview}
+          className="mt-2 w-full text-center text-sm text-ink/35 transition hover:text-ink/60"
+        >
+          Quick view
+        </button>
       </div>
     </motion.article>
   );
@@ -635,78 +645,107 @@ function DoctorPreviewModal({
     doctor.image.includes('/images/doctors/') ||
     doctor.image.startsWith('data:image/svg+xml');
 
-  const overlayInitial = shouldReduceMotion ? { opacity: 1 } : { opacity: 0 };
-  const overlayExit = shouldReduceMotion ? { opacity: 0 } : { opacity: 0 };
-  const modalInitial = shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.985, y: 14 };
-  const modalExit = shouldReduceMotion ? { opacity: 0, scale: 1, y: 0 } : { opacity: 0, scale: 0.99, y: 10 };
-  const motionTransition = shouldReduceMotion
+  // Body scroll lock
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const overlayAnim = shouldReduceMotion
+    ? { initial: { opacity: 1 }, exit: { opacity: 0 } }
+    : { initial: { opacity: 0 }, exit: { opacity: 0 } };
+  const panelAnim = shouldReduceMotion
+    ? { initial: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 0 } }
+    : { initial: { opacity: 0, y: 24 }, exit: { opacity: 0, y: 16 } };
+  const transition = shouldReduceMotion
     ? { duration: 0 }
-    : { duration: 0.26, ease: [0.16, 1, 0.3, 1] };
+    : { duration: 0.3, ease: [0.16, 1, 0.3, 1] };
 
   return (
     <motion.div
-      initial={overlayInitial}
+      initial={overlayAnim.initial}
       animate={{ opacity: 1 }}
-      exit={overlayExit}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25 px-4 py-6 backdrop-blur-3xl"
+      exit={overlayAnim.exit}
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
-        initial={modalInitial}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={modalExit}
-        transition={motionTransition}
-        className="relative w-full max-w-[650px] max-h-[90vh] overflow-hidden rounded-[42px] border border-black/[0.04] bg-white shadow-[0_50px_120px_rgba(0,0,0,0.22)] flex flex-col sm:flex-row"
+        initial={panelAnim.initial}
+        animate={{ opacity: 1, y: 0 }}
+        exit={panelAnim.exit}
+        transition={transition}
+        className="relative w-full sm:max-w-[520px] max-h-[90vh] overflow-y-auto overscroll-contain rounded-t-[28px] sm:rounded-[28px] bg-white shadow-2xl"
+        style={{ WebkitOverflowScrolling: 'touch' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Close */}
         <button
           onClick={onClose}
-          className="absolute right-6 top-6 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.10] bg-white/70 text-ink/60 backdrop-blur-md transition hover:bg-white/90 hover:text-ink/80"
+          className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-ink/40 transition hover:bg-black/10 hover:text-ink/70"
         >
           <CloseIcon />
         </button>
 
-        <div className="relative w-full sm:w-[260px] h-[240px] sm:h-auto overflow-hidden bg-[#fafafa] flex-shrink-0">
+        {/* Image */}
+        <div className="relative h-[240px] sm:h-[300px] w-full overflow-hidden bg-[#f5f5f7]">
           <img
             src={doctor.image}
             alt={doctor.name}
-            className={`h-full w-full ${isDefaultVector ? 'object-contain p-12' : 'object-cover object-center'}`}
+            className={`h-full w-full ${isDefaultVector ? 'object-contain p-14' : 'object-cover object-top'}`}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/10 to-transparent sm:hidden" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent" />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 overflow-y-auto px-8 sm:px-10 py-8 min-h-0 custom-scrollbar">
-            <div className="inline-block rounded-full bg-black/5 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-black/40">
-              Verified Specialist
-            </div>
-            <h2 className="mt-3 text-3xl font-black tracking-[-0.04em] text-ink leading-tight">{doctor.name}</h2>
-            <p className="text-sm font-bold text-ink/30 mb-8">{doctor.specialty}</p>
+        {/* Content */}
+        <div className="px-6 pb-6 -mt-6 relative">
+          <h2 className="text-xl font-bold tracking-tight text-ink">{doctor.name}</h2>
+          <p className="mt-0.5 text-sm text-ink/40">{doctor.specialty}</p>
 
-            <div className="grid grid-cols-2 gap-2 mb-10">
-              <MetricBlock label="Experience" value={doctor.experience} />
-              <MetricBlock label="Session Fee" value={`₹ ${doctor.price}`} />
-              <MetricBlock label="Languages" value={doctor.languages} />
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-ink/20 leading-none">Clinical Summary</p>
-              <p className="text-[0.9rem] leading-relaxed text-ink/50 font-medium">{doctor.bio}</p>
-            </div>
+          {/* Metrics */}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <MetricBlock label="Experience" value={doctor.experience} />
+            <MetricBlock label="Session Fee" value={`₹ ${doctor.price}`} />
+            {doctor.languages && <MetricBlock label="Languages" value={doctor.languages} />}
           </div>
 
-          <div className="sticky bottom-0 bg-white border-t border-black/[0.03] px-8 sm:px-10 py-6 flex items-center justify-between gap-4">
-            <div className="hidden lg:block whitespace-nowrap">
-              <p className="text-[9px] font-black uppercase tracking-widest text-ink/25">Official Care</p>
-              <p className="mt-0.5 text-[10px] font-bold text-ink/40">Lyxaa Provider Network</p>
+          {/* Focus areas */}
+          {doctor.topics.length > 0 && (
+            <div className="mt-6">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink/25 mb-2">Focus Areas</p>
+              <div className="flex flex-wrap gap-1.5">
+                {doctor.topics.map((t) => (
+                  <span key={t} className="rounded-full bg-black/5 px-3 py-1 text-xs text-ink/50">
+                    {t}
+                  </span>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Bio */}
+          {doctor.bio && (
+            <div className="mt-6">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ink/25 mb-2">About</p>
+              <p className="text-sm leading-relaxed text-ink/45">{doctor.bio}</p>
+            </div>
+          )}
+
+          {/* Book button */}
+          <div className="mt-8 flex items-center gap-3">
             <motion.button
-              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
-              whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
               onClick={onBook}
-              className="w-full sm:w-auto rounded-2xl bg-black py-4 px-10 text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-black/10"
+              className="h-11 flex-1 rounded-full bg-black text-sm font-semibold tracking-wide text-white transition-all"
             >
-              Secure Booking
+              Book Now · ₹{doctor.price}
             </motion.button>
           </div>
         </div>
