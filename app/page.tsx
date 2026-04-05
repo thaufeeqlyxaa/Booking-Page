@@ -4,10 +4,12 @@
 
 import { FormEvent, type InputHTMLAttributes, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { doctors, type Doctor } from '@/data/doctors';
-import { services, type Service } from '@/data/services';
-import { appendStoredBookingSubmission, getStoredDoctors, getStoredServices } from '@/lib/catalog-storage';
+import { fetchDoctors, fetchServices, insertBooking, type DbDoctor, type DbService } from '@/lib/supabase-api';
 import { sendBookingEmail } from '@/lib/email';
+
+// Adapters: map DbDoctor/DbService to the shape the UI expects
+type Doctor = DbDoctor & { image: string; slot: string; topics: string[]; hours: string; languages: string; };
+type Service = DbService;
 
 type BookingStep = 'service' | 'details' | 'review' | 'success';
 
@@ -35,11 +37,12 @@ const panelMotion = {
 
 export default function Home() {
   const [query, setQuery] = useState('');
-  const [doctorCatalog, setDoctorCatalog] = useState<Doctor[]>(doctors);
-  const [serviceCatalog, setServiceCatalog] = useState<Service[]>(services);
+  const [doctorCatalog, setDoctorCatalog] = useState<Doctor[]>([]);
+  const [serviceCatalog, setServiceCatalog] = useState<Service[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [activeDoctor, setActiveDoctor] = useState<Doctor | null>(null);
   const [previewDoctor, setPreviewDoctor] = useState<Doctor | null>(null);
-  const [selectedService, setSelectedService] = useState<Service | null>(services[0] ?? null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [step, setStep] = useState<BookingStep>('service');
   const [details, setDetails] = useState<BookingDetails>(initialDetails);
   const [showErrors, setShowErrors] = useState(false);
@@ -48,15 +51,24 @@ export default function Home() {
   const [deliveryMode, setDeliveryMode] = useState<'emailjs' | 'formsubmit' | 'mailto' | null>(null);
 
   useEffect(() => {
-    const nextDoctors = getStoredDoctors();
-    const nextServices = getStoredServices();
-
-    setDoctorCatalog(nextDoctors);
-    setServiceCatalog(nextServices);
-    setSelectedService((current) => {
-      if (!current) return nextServices[0] ?? null;
-      return nextServices.find((service) => service.id === current.id) ?? nextServices[0] ?? null;
-    });
+    async function loadCatalog() {
+      setCatalogLoading(true);
+      const [dbDoctors, dbServices] = await Promise.all([fetchDoctors(), fetchServices()]);
+      // Normalise DbDoctor → Doctor shape
+      const doctors: Doctor[] = dbDoctors.map((d) => ({
+        ...d,
+        image: d.image_url || '/images/doctors/doctor-1.svg',
+        slot: d.slot ?? 'Available',
+        topics: d.topics ?? [],
+        hours: d.hours ?? '',
+        languages: d.languages ?? '',
+      }));
+      setDoctorCatalog(doctors);
+      setServiceCatalog(dbServices);
+      setSelectedService(dbServices[0] ?? null);
+      setCatalogLoading(false);
+    }
+    loadCatalog();
   }, []);
 
   const filteredDoctors = useMemo(() => {
@@ -147,14 +159,19 @@ export default function Home() {
     setSubmitState('loading');
     setSubmitError(null);
 
-    try {
-      console.log('Sending booking email with payload:', {
-        service: selectedService.name,
-        doctor: activeDoctor.name,
-        name: details.name.trim(),
-        phone: details.phone.trim()
-      });
+    // 1. Save to Supabase (primary — non-blocking on email failure)
+    insertBooking({
+      doctor_id: activeDoctor.id,
+      service_id: selectedService.id,
+      name: details.name.trim(),
+      phone: details.phone.trim(),
+      email: details.email.trim(),
+      age: details.age.trim(),
+      notes: details.notes.trim() || 'None provided',
+    }).catch((err) => console.error('Supabase booking insert error:', err));
 
+    // 2. Send email notification (optional — non-blocking)
+    try {
       const result = await sendBookingEmail({
         service: selectedService.name,
         doctor: activeDoctor.name,
@@ -164,48 +181,13 @@ export default function Home() {
         age: details.age.trim(),
         notes: details.notes.trim() || 'None provided'
       });
-
-      console.log('Booking email sent successfully:', result);
-
-      try {
-        appendStoredBookingSubmission({
-          id: `submission-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-          createdAt: new Date().toISOString(),
-          doctorId: activeDoctor.id,
-          doctorName: activeDoctor.name,
-          doctorSpecialty: activeDoctor.specialty,
-          serviceId: selectedService.id,
-          serviceName: selectedService.name,
-          serviceDuration: selectedService.duration,
-          patientName: details.name.trim(),
-          phone: details.phone.trim(),
-          email: details.email.trim(),
-          age: details.age.trim(),
-          notes: details.notes.trim() || 'None provided',
-          deliveryMode: result.mode,
-          status: 'submitted'
-        });
-      } catch (storageError) {
-        console.error('Booking submission could not be recorded locally:', storageError);
-      }
-
       setDeliveryMode(result.mode);
-
-      setSubmitState('idle');
-
-      if (result.mode === 'mailto') {
-        setSubmitError('Primary email service not configured. Opening your email app to finish booking...');
-        setTimeout(() => setSubmitError(null), 8000);
-      } else {
-        setStep('success');
-      }
-    } catch (error: any) {
-      console.error('Submission final level error:', error);
-      setSubmitState('error');
-      
-      const details = error?.message || (typeof error === 'string' ? error : 'Failed to send booking request.');
-      setSubmitError(`${details} (Please try again or contact support).`);
+    } catch (emailError) {
+      console.warn('Email notification failed (non-blocking):', emailError);
     }
+
+    setSubmitState('idle');
+    setStep('success');
   };
 
   return (
@@ -246,7 +228,11 @@ export default function Home() {
                 </div>
               </div>
 
-              {filteredDoctors.length > 0 ? (
+              {catalogLoading ? (
+                <div className="section-card px-6 py-16 text-center">
+                  <p className="text-sm text-ink/40 font-medium animate-pulse">Loading doctors from database...</p>
+                </div>
+              ) : filteredDoctors.length > 0 ? (
                 <motion.div
                   variants={directoryGridMotion}
                   initial="hidden"

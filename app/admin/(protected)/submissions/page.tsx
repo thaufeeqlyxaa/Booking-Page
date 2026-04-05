@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  getStoredBookingSubmissions,
-  removeStoredBookingSubmission,
-  updateStoredBookingSubmission,
-  appendStoredBookingSubmission,
-  type BookingSubmission,
-  getStoredDoctors,
-  getStoredServices
-} from '@/lib/catalog-storage';
+  fetchBookings,
+  deleteBooking,
+  updateBooking,
+  insertBooking,
+  fetchDoctors,
+  fetchServices,
+  type DbDoctor,
+  type DbService,
+  type DbBooking
+} from '@/lib/supabase-api';
 
 const dateFormatter = new Intl.DateTimeFormat('en-IN', {
   dateStyle: 'medium',
@@ -17,48 +19,68 @@ const dateFormatter = new Intl.DateTimeFormat('en-IN', {
 });
 
 export default function AdminSubmissionsPage() {
-  const [submissions, setSubmissions] = useState<BookingSubmission[]>([]);
-  const [editingSubmission, setEditingSubmission] = useState<BookingSubmission | null>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [editingSubmission, setEditingSubmission] = useState<any | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // For manual add form
-  const doctors = getStoredDoctors();
-  const services = getStoredServices();
+  const [doctors, setDoctors] = useState<DbDoctor[]>([]);
+  const [services, setServices] = useState<DbService[]>([]);
 
   useEffect(() => {
-    setSubmissions(getStoredBookingSubmissions());
+    loadData();
   }, []);
+
+  async function loadData() {
+    setLoading(true);
+    const [bookingsData, docsData, srvsData] = await Promise.all([
+      fetchBookings(),
+      fetchDoctors(),
+      fetchServices()
+    ]);
+    setSubmissions(bookingsData);
+    setDoctors(docsData);
+    setServices(srvsData);
+    setLoading(false);
+  }
 
   const summary = useMemo(
     () => ({
       total: submissions.length,
-      emailjs: submissions.filter((item) => item.deliveryMode === 'emailjs').length,
-      formsubmit: submissions.filter((item) => item.deliveryMode === 'formsubmit').length,
-      mailto: submissions.filter((item) => item.deliveryMode === 'mailto').length
+      // Note: We don't have deliveryMode in DB currently, it's optional for the UI
+      confirmed: submissions.length, 
     }),
     [submissions]
   );
 
-  const removeSubmission = (submission: BookingSubmission) => {
-    const confirmed = window.confirm(`Permanently delete the submission from ${submission.patientName}?`);
+  const removeSubmission = async (id: string) => {
+    const confirmed = window.confirm(`Permanently delete this booking?`);
     if (!confirmed) return;
-    setSubmissions(removeStoredBookingSubmission(submission.id));
+    const ok = await deleteBooking(id);
+    if (ok) {
+      setSubmissions(prev => prev.filter(s => s.id !== id));
+    }
   };
 
-  const handleEdit = (submission: BookingSubmission) => {
+  const handleEdit = (submission: any) => {
     setEditingSubmission(submission);
   };
 
-  const saveEdit = (updated: BookingSubmission) => {
-    const next = updateStoredBookingSubmission(updated);
-    setSubmissions(next);
-    setEditingSubmission(null);
+  const saveEdit = async (updated: any) => {
+    const { doctors, services, ...payload } = updated;
+    const ok = await updateBooking(updated.id, payload);
+    if (ok) {
+      await loadData();
+      setEditingSubmission(null);
+    }
   };
 
-  const handleManualAdd = (newSub: BookingSubmission) => {
-    const next = appendStoredBookingSubmission(newSub);
-    setSubmissions(next);
-    setShowAddForm(false);
+  const handleManualAdd = async (newSub: DbBooking) => {
+    const id = await insertBooking(newSub);
+    if (id) {
+      await loadData();
+      setShowAddForm(false);
+    }
   };
 
   return (
@@ -73,20 +95,18 @@ export default function AdminSubmissionsPage() {
             </div>
             <h2 className="mt-3 text-[2rem] font-bold tracking-tight text-ink">Bookings Inbox</h2>
             <p className="mt-1.5 max-w-2xl text-[0.85rem] font-medium leading-relaxed text-ink/50">
-              Manage all your booking requests and submissions here.
+              Manage your clinic bookings. Data is synced with Supabase.
             </p>
           </div>
 
           <div className="flex items-center flex-wrap gap-4 lg:flex-nowrap">
-            <div className="grid grid-cols-4 gap-2 mr-0 lg:mr-4">
+            <div className="grid grid-cols-2 gap-2 mr-0 lg:mr-4">
               <SummaryPill label="Total" value={summary.total} active />
-              <SummaryPill label="Email" value={summary.emailjs} />
-              <SummaryPill label="Form" value={summary.formsubmit} />
-              <SummaryPill label="Draft" value={summary.mailto} />
+              <SummaryPill label="Active" value={summary.confirmed} />
             </div>
             <button 
               onClick={() => setShowAddForm(true)}
-              className="shrink-0 rounded-full bg-black px-6 py-3.5 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-black/90 active:scale-95 shadow-lg shadow-black/10"
+              className="shrink-0 rounded-full bg-black px-6 py-4 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-black/90 active:scale-95 shadow-lg shadow-black/10"
             >
               + Add Submission
             </button>
@@ -95,16 +115,13 @@ export default function AdminSubmissionsPage() {
       </div>
 
       {/* Submissions list */}
-      {submissions.length === 0 && !showAddForm ? (
+      {loading ? (
         <div className="rounded-[32px] border border-black/[0.04] bg-white px-6 py-16 text-center shadow-sm">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-black/[0.03]">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <path d="M21 15V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V15" strokeLinecap="round" strokeLinejoin="round" className="text-ink/30" />
-              <path d="M7 10L12 15L17 10" strokeLinecap="round" strokeLinejoin="round" className="text-ink/30" />
-              <path d="M12 15V3" strokeLinecap="round" strokeLinejoin="round" className="text-ink/30" />
-            </svg>
-          </div>
-          <p className="mt-4 text-[0.88rem] font-medium text-ink/50">No submissions yet.</p>
+           <p className="text-sm font-medium text-ink/30 animate-pulse">Syncing with Supabase...</p>
+        </div>
+      ) : submissions.length === 0 && !showAddForm ? (
+        <div className="rounded-[32px] border border-black/[0.04] bg-white px-6 py-16 text-center shadow-sm">
+          <p className="text-[0.88rem] font-medium text-ink/50">No submissions found in DB.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -117,24 +134,20 @@ export default function AdminSubmissionsPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black text-[0.9rem] font-bold text-white shadow-lg shadow-black/10">
-                      {submission.patientName.charAt(0).toUpperCase()}
+                      {submission.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <h3 className="truncate text-lg font-bold tracking-tight text-ink">
-                        {submission.patientName}
+                        {submission.name}
                       </h3>
                       <p className="mt-1 truncate text-xs font-bold text-ink/40 uppercase tracking-widest">
-                        {dateFormatter.format(new Date(submission.createdAt))}
+                        {submission.created_at ? dateFormatter.format(new Date(submission.created_at)) : 'New'}
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5 opacity-60 transition-opacity duration-300 group-hover:opacity-100">
-                  <span className="mr-3 rounded-full bg-black/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-ink/40">
-                    {submission.deliveryMode}
-                  </span>
-                  
                   <button
                     type="button"
                     onClick={() => handleEdit(submission)}
@@ -148,7 +161,7 @@ export default function AdminSubmissionsPage() {
 
                   <button
                     type="button"
-                    onClick={() => removeSubmission(submission)}
+                    onClick={() => removeSubmission(submission.id)}
                     className="flex h-10 w-10 items-center justify-center rounded-full text-ink/30 transition hover:bg-red-500 hover:text-white"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -161,8 +174,16 @@ export default function AdminSubmissionsPage() {
 
               <div className="border-t border-black/[0.04] bg-black/[0.01] px-8 py-6">
                 <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-                  <FieldPair label="Doctor" value={submission.doctorName} sub={submission.doctorSpecialty} />
-                  <FieldPair label="Service" value={submission.serviceName} sub={submission.serviceDuration} />
+                  <FieldPair 
+                    label="Doctor" 
+                    value={doctors.find(d => d.id === submission.doctor_id)?.name || 'Deleted Doctor'} 
+                    sub={doctors.find(d => d.id === submission.doctor_id)?.specialty} 
+                  />
+                  <FieldPair 
+                    label="Service" 
+                    value={services.find(s => s.id === submission.service_id)?.name || 'Deleted Service'} 
+                    sub={services.find(s => s.id === submission.service_id)?.duration} 
+                  />
                   <FieldPair label="Contact" value={submission.email} sub={submission.phone} />
                   <FieldPair label="Patient Age" value={`${submission.age} years`} />
                   <div className="lg:col-span-2">
@@ -199,7 +220,7 @@ export default function AdminSubmissionsPage() {
 
 function SummaryPill({ label, value, active }: { label: string; value: number; active?: boolean }) {
   return (
-    <div className={`rounded-xl px-4 py-3 text-center transition-all ${active ? 'bg-black text-white shadow-lg shadow-black/10' : 'bg-black/[0.03]'}`}>
+    <div className={`rounded-xl px-5 py-3 text-center transition-all ${active ? 'bg-black text-white shadow-lg shadow-black/10' : 'bg-black/[0.03]'}`}>
       <p className={`text-[9px] font-black uppercase tracking-[0.24em] ${active ? 'text-white/40' : 'text-ink/30'}`}>{label}</p>
       <p className={`mt-0.5 text-xl font-bold tracking-tight ${active ? 'text-white' : 'text-ink'}`}>{value}</p>
     </div>
@@ -216,14 +237,14 @@ function FieldPair({ label, value, sub }: { label: string; value: string; sub?: 
   );
 }
 
-function SubmissionEditModal({ submission, onClose, onSave }: { submission: BookingSubmission, onClose: () => void, onSave: (s: BookingSubmission) => void }) {
+function SubmissionEditModal({ submission, onClose, onSave }: { submission: any, onClose: () => void, onSave: (s: any) => void }) {
   const [form, setForm] = useState(submission);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
       <div className="w-full max-w-lg bg-white rounded-[32px] p-8 shadow-2xl overflow-hidden">
         <h3 className="text-xl font-bold tracking-tight mb-6">Edit Submission</h3>
         <div className="space-y-4">
-          <Input label="Patient Name" value={form.patientName} onChange={v => setForm({...form, patientName: v})} />
+          <Input label="Patient Name" value={form.name} onChange={v => setForm({...form, name: v})} />
           <div className="grid grid-cols-2 gap-4">
             <Input label="Email" value={form.email} onChange={v => setForm({...form, email: v})} />
             <Input label="Phone" value={form.phone} onChange={v => setForm({...form, phone: v})} />
@@ -242,41 +263,29 @@ function SubmissionEditModal({ submission, onClose, onSave }: { submission: Book
   );
 }
 
-function SubmissionAddModal({ onClose, onAdd, doctors, services }: { onClose: () => void, onAdd: (s: BookingSubmission) => void, doctors: any[], services: any[] }) {
-  const [form, setForm] = useState<Partial<BookingSubmission>>({
-    patientName: '',
+function SubmissionAddModal({ onClose, onAdd, doctors, services }: { onClose: () => void, onAdd: (s: DbBooking) => void, doctors: DbDoctor[], services: DbService[] }) {
+  const [form, setForm] = useState<Partial<DbBooking>>({
+    name: '',
     email: '',
     phone: '',
     age: '',
     notes: '',
-    deliveryMode: 'mailto'
   });
   const [docId, setDocId] = useState(doctors[0]?.id || '');
   const [srvId, setSrvId] = useState(services[0]?.id || '');
 
   const handleCreate = () => {
-    const doc = doctors.find(d => d.id === docId);
-    const srv = services.find(s => s.id === srvId);
-    if (!doc || !srv || !form.patientName) return;
+    if (!docId || !srvId || !form.name) return;
 
-    const newSub: BookingSubmission = {
-      id: `manual-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      doctorId: doc.id,
-      doctorName: doc.name,
-      doctorSpecialty: doc.specialty,
-      serviceId: srv.id,
-      serviceName: srv.name,
-      serviceDuration: srv.duration,
-      patientName: form.patientName!,
-      email: form.email || '',
+    onAdd({
+      doctor_id: docId,
+      service_id: srvId,
+      name: form.name!,
       phone: form.phone || '',
+      email: form.email || '',
       age: form.age || '',
       notes: form.notes || 'Manual Entry',
-      deliveryMode: 'mailto',
-      status: 'submitted'
-    };
-    onAdd(newSub);
+    });
   };
 
   return (
@@ -284,7 +293,7 @@ function SubmissionAddModal({ onClose, onAdd, doctors, services }: { onClose: ()
       <div className="w-full max-w-lg bg-white rounded-[32px] p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
         <h3 className="text-xl font-bold tracking-tight mb-6">Add Submission</h3>
         <div className="space-y-4">
-          <Input label="Patient Name" value={form.patientName || ''} onChange={v => setForm({...form, patientName: v})} />
+          <Input label="Patient Name" value={form.name || ''} onChange={v => setForm({...form, name: v})} />
           <div className="grid grid-cols-2 gap-4">
             <Select label="Doctor" value={docId} onChange={setDocId} options={doctors.map(d => ({label: d.name, value: d.id}))} />
             <Select label="Service" value={srvId} onChange={setSrvId} options={services.map(s => ({label: s.name, value: s.id}))} />
@@ -292,6 +301,9 @@ function SubmissionAddModal({ onClose, onAdd, doctors, services }: { onClose: ()
           <div className="grid grid-cols-2 gap-4">
             <Input label="Email" value={form.email || ''} onChange={v => setForm({...form, email: v})} />
             <Input label="Phone" value={form.phone || ''} onChange={v => setForm({...form, phone: v})} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Age" value={form.age || ''} onChange={v => setForm({...form, age: v})} />
           </div>
           <Textarea label="Notes" value={form.notes || ''} onChange={v => setForm({...form, notes: v})} />
         </div>
@@ -304,7 +316,6 @@ function SubmissionAddModal({ onClose, onAdd, doctors, services }: { onClose: ()
   );
 }
 
-/* UI Components for Modal */
 function Input({ label, value, onChange }: { label: string, value: string, onChange: (v: string) => void }) {
   return (
     <div>
@@ -325,7 +336,7 @@ function Select({ label, value, onChange, options }: { label: string, value: str
       <select 
         value={value} 
         onChange={e => onChange(e.target.value)} 
-        className="w-full h-12 bg-black/[0.03] border-none rounded-[16px] px-4 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-black/5 transition-all"
+        className="w-full h-12 bg-black/[0.03] border-none rounded-[16px] px-4 text-sm font-bold text-ink outline-none focus:ring-2 focus:ring-black/5 transition-all appearance-none cursor-pointer"
       >
         {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
       </select>

@@ -1,14 +1,18 @@
 'use client';
 
 import { FormEvent, type InputHTMLAttributes, useEffect, useState } from 'react';
-import { services as defaultServices, type Service } from '@/data/services';
-import { getStoredServices, saveStoredServices } from '@/lib/catalog-storage';
+import {
+  fetchServices,
+  insertService,
+  updateService,
+  deleteService,
+  type DbService
+} from '@/lib/supabase-api';
 
 type ServiceFormState = {
   name: string;
   description: string;
   duration: string;
-  focus: string;
   price: string;
 };
 
@@ -16,21 +20,29 @@ const initialServiceForm: ServiceFormState = {
   name: '',
   description: '',
   duration: '',
-  focus: '',
   price: ''
 };
 
 export default function AdminServicesPage() {
-  const [serviceList, setServiceList] = useState<Service[]>([]);
+  const [serviceList, setServiceList] = useState<DbService[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [form, setForm] = useState<ServiceFormState>(initialServiceForm);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setServiceList(getStoredServices());
+    loadServices();
   }, []);
+
+  async function loadServices() {
+    setLoading(true);
+    const data = await fetchServices();
+    setServiceList(data);
+    setLoading(false);
+  }
 
   const isEditing = editingServiceId !== null;
 
@@ -47,12 +59,11 @@ export default function AdminServicesPage() {
     setSuccess(null);
   };
 
-  const openEditForm = (service: Service) => {
+  const openEditForm = (service: DbService) => {
     setForm({
       name: service.name,
       description: service.description,
       duration: service.duration,
-      focus: service.focus,
       price: String(service.price)
     });
     setEditingServiceId(service.id);
@@ -68,67 +79,70 @@ export default function AdminServicesPage() {
     setEditingServiceId(null);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     const price = Number(form.price);
-    if (!form.name.trim() || !form.description.trim() || !form.duration.trim() || !form.focus.trim() || !form.price.trim()) {
+
+    if (!form.name.trim() || !form.description.trim() || !form.duration.trim() || !form.price.trim()) {
       setError('Please fill in all service details.');
       return;
     }
-
     if (Number.isNaN(price) || price <= 0) {
       setError('Required: Valid service fee.');
       return;
     }
 
-    const nextService: Service = {
-      id: editingServiceId ?? `srv-${Date.now().toString(36)}`,
+    setSaving(true);
+    setError(null);
+
+    const payload = {
       name: form.name.trim(),
       description: form.description.trim(),
       duration: form.duration.trim(),
-      focus: form.focus.trim(),
-      price
+      price,
     };
 
-    const nextServices = isEditing
-      ? serviceList.map((s) => (s.id === editingServiceId ? nextService : s))
-      : [nextService, ...serviceList];
-
-    try {
-      saveStoredServices(nextServices);
-      setServiceList(nextServices);
-      setSuccess(isEditing ? 'Service updated.' : 'New service added.');
-      setShowForm(false);
-      setForm(initialServiceForm);
-      setEditingServiceId(null);
-    } catch {
-      setError('Save failed.');
+    if (isEditing && editingServiceId) {
+      const ok = await updateService(editingServiceId, payload);
+      if (ok) {
+        setSuccess('Service updated.');
+        await loadServices();
+        closeForm();
+      } else {
+        setError('Update failed. Please try again.');
+      }
+    } else {
+      const created = await insertService(payload);
+      if (created) {
+        setSuccess('New service added.');
+        await loadServices();
+        closeForm();
+      } else {
+        setError('Save failed. Please try again.');
+      }
     }
+
+    setSaving(false);
   };
 
-  const handleDelete = (serviceId: string) => {
+  const handleDelete = async (serviceId: string) => {
     const service = serviceList.find((item) => item.id === serviceId);
     if (!service) return;
-
-    const confirmed = window.confirm(`Permanently remove ${service.name} from catalog?`);
+    const confirmed = window.confirm(`Permanently remove "${service.name}" from catalog?`);
     if (!confirmed) return;
 
-    const nextServices = serviceList.filter((item) => item.id !== serviceId);
-    try {
-      saveStoredServices(nextServices);
-      setServiceList(nextServices);
-      if (editingServiceId === serviceId) closeForm();
+    const ok = await deleteService(serviceId);
+    if (ok) {
       setSuccess('Service removed.');
-      setError(null);
-    } catch {
-      setError('Operation failed.');
+      setServiceList((prev) => prev.filter((s) => s.id !== serviceId));
+    } else {
+      setError('Delete failed. Please try again.');
     }
   };
 
   return (
     <section className="space-y-8 pb-32">
-      {/* Dynamic Header */}
+      {/* Header */}
       <div className="rounded-[40px] border border-black/[0.04] bg-white p-10 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -138,7 +152,7 @@ export default function AdminServicesPage() {
             </div>
             <h1 className="mt-3 text-[2.4rem] font-black tracking-tight text-ink">Services</h1>
             <p className="mt-2 max-w-xl text-[0.92rem] font-medium leading-relaxed text-ink/45">
-              Manage the services your clinic offers.
+              Manage the services your clinic offers. Changes reflect instantly across all devices.
             </p>
           </div>
 
@@ -157,17 +171,20 @@ export default function AdminServicesPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 <Input label="Service Name" value={form.name} onChange={v => updateField('name', v)} placeholder="Consultation" />
-                <Input label="Session Duration" value={form.duration} onChange={v => updateField('duration', v)} placeholder="45 minutes" />
-                <Input label="Session Price" value={form.price} onChange={v => updateField('price', v)} placeholder="1000" inputMode="numeric" />
+                <Input label="Session Duration" value={form.duration} onChange={v => updateField('duration', v)} placeholder="45 min" />
+                <Input label="Session Price (₹)" value={form.price} onChange={v => updateField('price', v)} placeholder="1000" inputMode="numeric" />
               </div>
-              <Input label="Focus Area" value={form.focus} onChange={v => updateField('focus', v)} placeholder="General Checkup" />
               <Textarea label="Description" value={form.description} onChange={v => updateField('description', v)} placeholder="Description of the service." />
-              
+
               <div className="flex items-center justify-between border-t border-black/[0.05] pt-6">
                 {error && <p className="text-sm font-bold text-red-500 mr-4">{error}</p>}
                 {!error && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ink/20">All fields required</p>}
-                <button type="submit" className="rounded-full bg-black px-10 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-black/10 transition-all hover:bg-black/90 active:scale-95">
-                  {isEditing ? 'Save Changes' : 'Add Service'}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-full bg-black px-10 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-black/10 transition-all hover:bg-black/90 active:scale-95 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Service'}
                 </button>
               </div>
             </form>
@@ -177,37 +194,46 @@ export default function AdminServicesPage() {
 
       {success && <p className="ml-4 text-sm font-bold text-emerald-600">{success}</p>}
 
-      {/* Services List Display */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {serviceList.map((service) => (
-          <article key={service.id} className="group relative flex flex-col rounded-[40px] border border-black/[0.04] bg-white p-8 shadow-sm transition-all duration-300 hover:border-black/[0.08] hover:shadow-xl hover:shadow-black/5 hover:-translate-y-1">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-ink/20 mb-2">{service.duration}</p>
-                <h3 className="text-xl font-bold tracking-tight text-ink leading-tight">{service.name}</h3>
-                <p className="mt-2 text-[10px] font-bold text-ink/40 uppercase tracking-widest">{service.focus}</p>
+      {/* Services List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <p className="text-sm text-ink/40 font-semibold">Loading from Supabase...</p>
+        </div>
+      ) : serviceList.length === 0 ? (
+        <div className="rounded-[32px] border border-black/[0.04] bg-white p-12 text-center shadow-sm">
+          <p className="text-sm text-ink/40">No services yet. Add your first service above.</p>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {serviceList.map((service) => (
+            <article key={service.id} className="group relative flex flex-col rounded-[40px] border border-black/[0.04] bg-white p-8 shadow-sm transition-all duration-300 hover:border-black/[0.08] hover:shadow-xl hover:shadow-black/5 hover:-translate-y-1">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-ink/20 mb-2">{service.duration}</p>
+                  <h3 className="text-xl font-bold tracking-tight text-ink leading-tight">{service.name}</h3>
+                </div>
+
+                <div className="flex flex-col gap-1 opacity-10 transition-opacity duration-300 group-hover:opacity-100">
+                  <IconButton onClick={() => openEditForm(service)} icon={<EditIcon />} />
+                  <IconButton onClick={() => handleDelete(service.id)} icon={<DeleteIcon />} isDestructive />
+                </div>
               </div>
 
-              <div className="flex flex-col gap-1 opacity-10 transition-opacity duration-300 group-hover:opacity-100">
-                <IconButton onClick={() => openEditForm(service)} icon={<EditIcon />} />
-                <IconButton onClick={() => handleDelete(service.id)} icon={<DeleteIcon />} isDestructive />
+              <div className="mt-6 flex-1">
+                <p className="text-sm leading-relaxed text-ink/50 py-4 border-y border-black/[0.03]">{service.description}</p>
               </div>
-            </div>
 
-            <div className="mt-6 flex-1">
-              <p className="text-sm leading-relaxed text-ink/50 py-4 border-y border-black/[0.03]">{service.description}</p>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-2 w-2 rounded-full bg-black/10" />
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-ink/30">Active</p>
+              <div className="mt-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-2 w-2 rounded-full bg-black/10" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-ink/30">Active</p>
+                </div>
+                <p className="text-[1.3rem] font-bold tracking-tight text-ink">₹ {service.price}</p>
               </div>
-              <p className="text-[1.3rem] font-bold tracking-tight text-ink">₹ {service.price}</p>
-            </div>
-          </article>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -217,12 +243,12 @@ function Input({ label, value, onChange, placeholder, inputMode }: { label: stri
   return (
     <div>
       <p className="text-[9px] font-black uppercase tracking-[0.25em] text-ink/25 mb-2 ml-1">{label}</p>
-      <input 
-        value={value} 
-        onChange={e => onChange(e.target.value)} 
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        className="w-full h-12 bg-black/[0.03] border-none rounded-[18px] px-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none" 
+        className="w-full h-12 bg-black/[0.03] border-none rounded-[18px] px-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none"
       />
     </div>
   );
@@ -232,12 +258,12 @@ function Textarea({ label, value, onChange, placeholder }: { label: string, valu
   return (
     <div>
       <p className="text-[9px] font-black uppercase tracking-[0.25em] text-ink/25 mb-2 ml-1">{label}</p>
-      <textarea 
+      <textarea
         rows={4}
-        value={value} 
-        onChange={e => onChange(e.target.value)} 
+        value={value}
+        onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-black/[0.03] border-none rounded-[22px] px-4 py-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none resize-none" 
+        className="w-full bg-black/[0.03] border-none rounded-[22px] px-4 py-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none resize-none"
       />
     </div>
   );

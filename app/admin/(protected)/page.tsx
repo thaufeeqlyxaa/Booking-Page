@@ -2,13 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getCatalogCounts } from '@/lib/catalog-storage';
+import { supabase } from '@/utils/supabase/client';
 
 export default function AdminOverviewPage() {
   const [counts, setCounts] = useState({ doctors: 0, services: 0, submissions: 0 });
 
   useEffect(() => {
-    setCounts(getCatalogCounts());
+    async function loadCounts() {
+      const [{ count: doctorCount }, { count: serviceCount }, { count: submissionCount }] = await Promise.all([
+        supabase.from('doctors').select('*', { count: 'exact', head: true }),
+        supabase.from('services').select('*', { count: 'exact', head: true }),
+        supabase.from('bookings').select('*', { count: 'exact', head: true }),
+      ]);
+      setCounts({
+        doctors: doctorCount ?? 0,
+        services: serviceCount ?? 0,
+        submissions: submissionCount ?? 0,
+      });
+    }
+    loadCounts();
   }, []);
 
   return (

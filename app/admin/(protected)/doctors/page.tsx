@@ -1,85 +1,59 @@
 'use client';
 
-/* eslint-disable @next/next/no-img-element */
-
+import { FormEvent, type InputHTMLAttributes, useEffect, useState } from 'react';
 import {
-  ChangeEvent,
-  FormEvent,
-  type InputHTMLAttributes,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
-import { doctors as defaultDoctors, type Doctor } from '@/data/doctors';
-import { getStoredDoctors, saveStoredDoctors } from '@/lib/catalog-storage';
+  fetchDoctors,
+  insertDoctor,
+  updateDoctor,
+  deleteDoctor,
+  uploadDoctorImage,
+  type DbDoctor
+} from '@/lib/supabase-api';
 
 type DoctorFormState = {
-  image: string;
+  image_url: string;
   name: string;
   specialty: string;
   experience: string;
   bio: string;
-  hours: string;
-  topics: string;
-  languages: string;
   price: string;
+  file: File | null;
 };
 
 const defaultImage = '/images/doctors/doctor-1.svg';
 
 const initialDoctorForm: DoctorFormState = {
-  image: defaultImage,
+  image_url: defaultImage,
   name: '',
   specialty: '',
   experience: '',
   bio: '',
-  hours: '',
-  topics: '',
-  languages: '',
-  price: ''
+  price: '',
+  file: null
 };
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function readImageAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error('Image upload could not be read.'));
-    };
-    reader.onerror = () => reject(new Error('Image upload failed.'));
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function AdminDoctorsPage() {
-  const [doctorList, setDoctorList] = useState<Doctor[]>([]);
+  const [doctorList, setDoctorList] = useState<DbDoctor[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingDoctorId, setEditingDoctorId] = useState<string | null>(null);
   const [form, setForm] = useState<DoctorFormState>(initialDoctorForm);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [imageLabel, setImageLabel] = useState('Default asset');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setDoctorList(getStoredDoctors());
+    loadDoctors();
   }, []);
 
+  async function loadDoctors() {
+    setLoading(true);
+    const data = await fetchDoctors();
+    setDoctorList(data);
+    setLoading(false);
+  }
+
   const isEditing = editingDoctorId !== null;
-  const nextCount = useMemo(() => doctorList.length + 1, [doctorList.length]);
 
   const updateField = (field: keyof DoctorFormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -91,8 +65,6 @@ export default function AdminDoctorsPage() {
     setForm(initialDoctorForm);
     setEditingDoctorId(null);
     setError(null);
-    setIsUploading(false);
-    setImageLabel('Default asset');
   };
 
   const openCreateForm = () => {
@@ -101,23 +73,20 @@ export default function AdminDoctorsPage() {
     setShowForm(true);
   };
 
-  const openEditForm = (doctor: Doctor) => {
+  const openEditForm = (doctor: DbDoctor) => {
     setForm({
-      image: doctor.image,
+      image_url: doctor.image_url || defaultImage,
       name: doctor.name,
       specialty: doctor.specialty,
       experience: doctor.experience,
       bio: doctor.bio,
-      hours: doctor.hours,
-      topics: doctor.topics.join(', '),
-      languages: doctor.languages,
-      price: String(doctor.price)
+      price: String(doctor.price),
+      file: null
     });
     setEditingDoctorId(doctor.id);
     setShowForm(true);
     setError(null);
     setSuccess(null);
-    setImageLabel(doctor.image.startsWith('data:') ? 'Custom upload active' : 'Asset selected');
   };
 
   const closeForm = () => {
@@ -126,93 +95,79 @@ export default function AdminDoctorsPage() {
     resetForm();
   };
 
-  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file.');
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Please upload an image smaller than 2MB.');
-      return;
-    }
-
-    setIsUploading(true);
-    setError(null);
-
-    try {
-      const dataUrl = await readImageAsDataUrl(file);
-      updateField('image', dataUrl);
-      setImageLabel(file.name);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Image upload failed.');
-    } finally {
-      setIsUploading(false);
-      event.target.value = '';
-    }
-  };
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     const price = Number(form.price);
-    if (!form.name.trim() || !form.specialty.trim() || !form.experience.trim() || !form.bio.trim() || !form.hours.trim() || !form.languages.trim() || !form.price.trim()) {
+
+    if (!form.name.trim() || !form.specialty.trim() || !form.experience.trim() || !form.bio.trim() || !form.price.trim()) {
       setError('Please fill in all doctor details.');
       return;
     }
-
     if (Number.isNaN(price) || price <= 0) {
       setError('Required: Valid consultation fee.');
       return;
     }
 
-    const nextDoctor: Doctor = {
-      id: editingDoctorId ?? `${slugify(form.name) || `doc-${nextCount}`}-${Date.now().toString(36)}`,
-      image: form.image.trim() || defaultImage,
+    setSaving(true);
+    setError(null);
+    
+    let finalImageUrl = form.image_url.trim() || defaultImage;
+
+    try {
+      if (form.file) {
+        setSuccess('Uploading image...');
+        finalImageUrl = await uploadDoctorImage(form.file);
+      }
+    } catch (uploadError: any) {
+      setError(uploadError.message || 'Image upload failed.');
+      setSaving(false);
+      return;
+    }
+
+    const payload = {
       name: form.name.trim(),
       specialty: form.specialty.trim(),
       experience: form.experience.trim(),
       bio: form.bio.trim(),
-      hours: form.hours.trim(),
-      topics: form.topics.split(',').map((t) => t.trim()).filter(Boolean),
-      languages: form.languages.trim(),
-      price
+      image_url: finalImageUrl,
+      price,
     };
 
-    const nextDoctors = isEditing
-      ? doctorList.map((d) => (d.id === editingDoctorId ? nextDoctor : d))
-      : [nextDoctor, ...doctorList];
-
-    try {
-      saveStoredDoctors(nextDoctors);
-      setDoctorList(nextDoctors);
-      setSuccess(isEditing ? 'Doctor profile updated.' : 'New doctor added.');
-      setShowForm(false);
-      resetForm();
-    } catch {
-      setError('Save failed.');
+    if (isEditing && editingDoctorId) {
+      const ok = await updateDoctor(editingDoctorId, payload);
+      if (ok) {
+        setSuccess('Doctor profile updated.');
+        await loadDoctors();
+        closeForm();
+      } else {
+        setError('Update failed. Please try again.');
+        setSaving(false);
+      }
+    } else {
+      const created = await insertDoctor(payload);
+      if (created) {
+        setSuccess('New doctor added.');
+        await loadDoctors();
+        closeForm();
+      } else {
+        setError('Save failed. Please try again.');
+        setSaving(false);
+      }
     }
   };
 
-  const handleDelete = (doctorId: string) => {
+  const handleDelete = async (doctorId: string) => {
     const doctor = doctorList.find((item) => item.id === doctorId);
     if (!doctor) return;
-
     const confirmed = window.confirm(`Permanently remove ${doctor.name} from directory?`);
     if (!confirmed) return;
 
-    const nextDoctors = doctorList.filter((item) => item.id !== doctorId);
-    try {
-      saveStoredDoctors(nextDoctors);
-      setDoctorList(nextDoctors);
-      if (editingDoctorId === doctorId) closeForm();
+    const ok = await deleteDoctor(doctorId);
+    if (ok) {
       setSuccess('Doctor removed from directory.');
-      setError(null);
-    } catch {
-      setError('Delete failed.');
+      setDoctorList((prev) => prev.filter((d) => d.id !== doctorId));
+    } else {
+      setError('Delete failed. Please try again.');
     }
   };
 
@@ -228,7 +183,7 @@ export default function AdminDoctorsPage() {
             </div>
             <h1 className="mt-3 text-[2.4rem] font-black tracking-tight text-ink">Doctors</h1>
             <p className="mt-2 max-w-xl text-[0.92rem] font-medium leading-relaxed text-ink/45">
-              Manage your doctor profiles and their session details.
+              Manage your doctor profiles. Changes reflect instantly across all devices.
             </p>
           </div>
 
@@ -244,46 +199,50 @@ export default function AdminDoctorsPage() {
 
         {showForm && (
           <div className="mt-8 border-t border-black/[0.05] pt-8">
-            <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[240px_1fr]">
-              {/* Image Column */}
-              <div className="space-y-4">
-                <div className="aspect-[3/4] overflow-hidden rounded-[32px] border border-black/[0.06] bg-black/[0.02]">
-                  <img src={form.image} alt="Preview" className="h-full w-full object-cover grayscale-[0.2] transition-all hover:grayscale-0" />
-                </div>
-                <div className="space-y-3">
-                  <p className="text-center text-[10px] font-bold uppercase tracking-widest text-ink/25">{imageLabel}</p>
-                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full bg-black/5 py-2.5 text-[0.75rem] font-bold text-ink hover:bg-black/10 transition-colors">
-                      {isUploading ? '...' : 'Upload'}
-                    </button>
-                    <button type="button" onClick={() => updateField('image', defaultImage)} className="rounded-full bg-black/5 py-2.5 text-[0.75rem] font-bold text-ink hover:bg-black/10 transition-colors">
-                      Default
-                    </button>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <Input label="Name" value={form.name} onChange={v => updateField('name', v)} placeholder="Dr. Sarah Johnson" />
+                <Input label="Specialty" value={form.specialty} onChange={v => updateField('specialty', v)} placeholder="Lead Psychotherapist" />
+                <Input label="Experience" value={form.experience} onChange={v => updateField('experience', v)} placeholder="12 yrs experience" />
+                <Input label="Session Fee (₹)" value={form.price} onChange={v => updateField('price', v)} placeholder="1500" inputMode="numeric" />
+                <div className="md:col-span-2">
+                  <p className="text-[9px] font-black uppercase tracking-[0.25em] text-ink/25 mb-2 ml-1">Profile Image</p>
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-black/[0.06] bg-black/[0.02]">
+                      <img 
+                        src={form.file ? URL.createObjectURL(form.file) : form.image_url} 
+                        alt="Preview" 
+                        className="h-full w-full object-cover" 
+                      />
+                    </div>
+                    <label className="cursor-pointer rounded-full bg-black/5 px-6 py-3 text-[0.8rem] font-bold text-ink hover:bg-black/10 transition-colors">
+                      Upload New Image
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={e => {
+                          if (e.target.files?.[0]) {
+                            setForm({ ...form, file: e.target.files[0] });
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
                 </div>
               </div>
+              <Textarea label="Bio" value={form.bio} onChange={v => updateField('bio', v)} placeholder="Description of the doctor." />
 
-              {/* Data Grid */}
-              <div className="space-y-6">
-                <div className="grid gap-5 md:grid-cols-2">
-                  <Input label="Name" value={form.name} onChange={v => updateField('name', v)} placeholder="Dr. Sarah Johnson" />
-                  <Input label="Specialty" value={form.specialty} onChange={v => updateField('specialty', v)} placeholder="Lead Psychotherapist" />
-                  <Input label="Experience" value={form.experience} onChange={v => updateField('experience', v)} placeholder="12 Years" />
-                  <Input label="Working Hours" value={form.hours} onChange={v => updateField('hours', v)} placeholder="5000+ therapy hours" />
-                  <Input label="Languages Spoken" value={form.languages} onChange={v => updateField('languages', v)} placeholder="English, Malayalam" />
-                  <Input label="Session Fee" value={form.price} onChange={v => updateField('price', v)} placeholder="1500" inputMode="numeric" />
-                </div>
-                <Input label="Tags (Comma separated)" value={form.topics} onChange={v => updateField('topics', v)} placeholder="Stress, OCD, Family Therapy" />
-                <Textarea label="Bio" value={form.bio} onChange={v => updateField('bio', v)} placeholder="Description of the doctor." />
-                
-                <div className="flex items-center justify-between border-t border-black/[0.05] pt-6">
-                  {error && <p className="text-sm font-bold text-red-500 mr-4">{error}</p>}
-                  {!error && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ink/20">All fields mandatory</p>}
-                  <button type="submit" className="rounded-full bg-black px-10 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-black/10 transition-all hover:bg-black/90 active:scale-95">
-                    {isEditing ? 'Save Changes' : 'Add Doctor'}
-                  </button>
-                </div>
+              <div className="flex items-center justify-between border-t border-black/[0.05] pt-6">
+                {error && <p className="text-sm font-bold text-red-500 mr-4">{error}</p>}
+                {!error && <p className="text-[10px] font-black uppercase tracking-[0.2em] text-ink/20">All fields mandatory</p>}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-full bg-black px-10 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-black/10 transition-all hover:bg-black/90 active:scale-95 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Doctor'}
+                </button>
               </div>
             </form>
           </div>
@@ -292,43 +251,46 @@ export default function AdminDoctorsPage() {
 
       {success && <p className="ml-4 text-sm font-bold text-emerald-600">{success}</p>}
 
-      {/* Specialist List Grid */}
-      <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
-        {doctorList.map((doctor) => (
-          <article key={doctor.id} className="group relative flex flex-col overflow-hidden rounded-[40px] border border-black/[0.04] bg-white p-6 shadow-sm transition-all duration-300 hover:border-black/[0.08] hover:shadow-xl hover:shadow-black/5 hover:-translate-y-1">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-black/[0.06] bg-black/[0.02] shadow-sm">
-                  <img src={doctor.image} alt={doctor.name} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
+      {/* Doctor List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <p className="text-sm text-ink/40 font-semibold">Loading from Supabase...</p>
+        </div>
+      ) : doctorList.length === 0 ? (
+        <div className="rounded-[32px] border border-black/[0.04] bg-white p-12 text-center shadow-sm">
+          <p className="text-sm text-ink/40">No doctors yet. Add your first doctor above.</p>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
+          {doctorList.map((doctor) => (
+            <article key={doctor.id} className="group relative flex flex-col overflow-hidden rounded-[40px] border border-black/[0.04] bg-white p-6 shadow-sm transition-all duration-300 hover:border-black/[0.08] hover:shadow-xl hover:shadow-black/5 hover:-translate-y-1">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-black/[0.06] bg-black/[0.02] shadow-sm">
+                    <img src={doctor.image_url || defaultImage} alt={doctor.name} className="h-full w-full object-cover transition duration-700 group-hover:scale-110" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-xl font-bold tracking-tight text-ink">{doctor.name}</h3>
+                    <p className="mt-0.5 truncate text-[10px] font-bold text-ink/40 uppercase tracking-widest">{doctor.specialty}</p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h3 className="truncate text-xl font-bold tracking-tight text-ink">{doctor.name}</h3>
-                  <p className="mt-0.5 truncate text-[10px] font-bold text-ink/40 uppercase tracking-widest">{doctor.specialty}</p>
+
+                <div className="flex items-center gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <IconButton onClick={() => openEditForm(doctor)} icon={<EditIcon />} />
+                  <IconButton onClick={() => handleDelete(doctor.id)} icon={<DeleteIcon />} isDestructive />
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                <IconButton onClick={() => openEditForm(doctor)} icon={<EditIcon />} />
-                <IconButton onClick={() => handleDelete(doctor.id)} icon={<DeleteIcon />} isDestructive />
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <MiniPill label="Experience" value={doctor.experience} />
+                <MiniPill label="Fee" value={`₹ ${doctor.price}`} />
               </div>
-            </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <MiniPill label="Exp" value={doctor.experience} />
-              <MiniPill label="Hours" value={doctor.hours} />
-              <MiniPill label="Price" value={`₹ ${doctor.price}`} />
-              <MiniPill label="Languages" value={doctor.languages} />
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-1.5 overflow-hidden max-h-[64px]">
-              {doctor.topics.slice(0, 3).map(t => (
-                <span key={t} className="rounded-full bg-black/[0.03] px-3 py-1.5 text-[0.72rem] font-bold text-ink/60">#{t}</span>
-              ))}
-              {doctor.topics.length > 3 && <span className="text-[0.72rem] font-bold text-ink/40 pt-1.5">+{doctor.topics.length - 3} more</span>}
-            </div>
-          </article>
-        ))}
-      </div>
+              <p className="mt-4 text-sm text-ink/50 leading-relaxed line-clamp-2">{doctor.bio}</p>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -338,12 +300,12 @@ function Input({ label, value, onChange, placeholder, inputMode }: { label: stri
   return (
     <div>
       <p className="text-[9px] font-black uppercase tracking-[0.25em] text-ink/25 mb-2 ml-1">{label}</p>
-      <input 
-        value={value} 
-        onChange={e => onChange(e.target.value)} 
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        className="w-full h-12 bg-black/[0.03] border-none rounded-[18px] px-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none" 
+        className="w-full h-12 bg-black/[0.03] border-none rounded-[18px] px-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none"
       />
     </div>
   );
@@ -353,12 +315,12 @@ function Textarea({ label, value, onChange, placeholder }: { label: string, valu
   return (
     <div>
       <p className="text-[9px] font-black uppercase tracking-[0.25em] text-ink/25 mb-2 ml-1">{label}</p>
-      <textarea 
+      <textarea
         rows={4}
-        value={value} 
-        onChange={e => onChange(e.target.value)} 
+        value={value}
+        onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-black/[0.03] border-none rounded-[22px] px-4 py-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none resize-none" 
+        className="w-full bg-black/[0.03] border-none rounded-[22px] px-4 py-4 text-[0.92rem] font-bold text-ink placeholder:text-ink/15 transition focus:ring-2 focus:ring-black/5 outline-none resize-none"
       />
     </div>
   );
