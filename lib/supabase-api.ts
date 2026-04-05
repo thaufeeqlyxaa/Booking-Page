@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/utils/supabase/client';
+import { Doctor, Service, Booking } from '@/types';
 
 // ─────────────────────────────────────────────
 // TYPE DEFINITIONS (matching Supabase schema)

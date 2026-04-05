@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Service } from '@/data/services';
+import { Service } from '@/types';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 24 },

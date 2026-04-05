@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { Doctor } from '@/data/doctors';
+import { Doctor } from '@/types';
 
 const doctorVariants = {
   hidden: { opacity: 0, y: 32 },
@@ -33,7 +33,7 @@ export function DoctorCard({ doctor, selected, onSelect }: DoctorCardProps) {
     >
       <div className="flex items-center gap-4">
         <div className="relative h-18 w-18 flex-shrink-0 overflow-hidden rounded-[22px] border border-ink/10">
-          <Image src={doctor.image} alt={doctor.name} fill sizes="80px" className="object-cover" priority />
+          <Image src={doctor.image || doctor.image_url || '/images/doctors/doctor-1.svg'} alt={doctor.name} fill sizes="80px" className="object-cover" priority />
         </div>
         <div>
           <p className="text-base font-semibold text-ink">{doctor.name}</p>
