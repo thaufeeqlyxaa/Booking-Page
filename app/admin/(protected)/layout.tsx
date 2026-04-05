@@ -1,9 +1,11 @@
+'use client';
+
 import type { ReactNode } from 'react';
-import { cookies } from 'next/headers';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { redirect } from 'next/navigation';
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/admin-auth';
+import { useRouter, usePathname } from 'next/navigation';
+import { supabase } from '@/utils/supabase/client';
 
 const adminLinks = [
   { href: '/admin', label: 'Overview', icon: 'grid' },
@@ -13,24 +15,32 @@ const adminLinks = [
 ];
 
 export default function ProtectedAdminLayout({ children }: { children: ReactNode }) {
-  const sessionToken = cookies().get(ADMIN_SESSION_COOKIE)?.value;
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
-  if (!verifyAdminSessionToken(sessionToken)) {
-    redirect('/admin/login');
-  }
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-  async function logoutAction() {
-    'use server';
-    cookies().set({
-      name: ADMIN_SESSION_COOKIE,
-      value: '',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 0
-    });
-    redirect('/admin/login');
+      if (!session) {
+        router.push('/admin/login');
+      } else {
+        setLoading(false);
+      }
+    };
+    checkSession();
+  }, [router, pathname]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/admin/login');
+  };
+
+  if (loading) {
+    return <div className="min-h-screen bg-white" />;
   }
 
   return (
@@ -66,16 +76,14 @@ export default function ProtectedAdminLayout({ children }: { children: ReactNode
               View Website
             </Link>
 
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="w-10 h-10 rounded-full bg-red-500/[0.03] text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-                </svg>
-              </button>
-            </form>
+            <button
+              onClick={handleLogout}
+              className="w-10 h-10 rounded-full bg-red-500/[0.03] text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+            </button>
           </div>
         </header>
 

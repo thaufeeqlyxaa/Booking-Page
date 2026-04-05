@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/utils/supabase/client';
 
 export default function AdminLoginPage() {
   return (
@@ -25,22 +26,22 @@ function LoginFormContainer() {
     setError(false);
 
     const formData = new FormData(event.currentTarget);
-    const username = String(formData.get('username'));
+    const email = String(formData.get('email'));
     const password = String(formData.get('password'));
 
-    // Server-side action simulation with fetch to keep it client-side responsive
     try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
+      const { data, error: sbError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (res.ok) {
-        router.refresh();
-        router.push(searchParams.get('next') || '/admin');
-      } else {
+      if (sbError) {
         setError(true);
+        return;
       }
+
+      router.refresh();
+      router.push(searchParams.get('next') || '/admin');
     } catch (e) {
       setError(true);
     } finally {
@@ -75,7 +76,7 @@ function LoginFormContainer() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <LoginField label="Username" name="username" placeholder="admin" autofocus />
+            <LoginField label="Email Address" name="email" placeholder="admin@example.com" type="email" autofocus />
             <LoginField label="Password" name="password" placeholder="password" type="password" />
 
             <AnimatePresence>
@@ -86,7 +87,7 @@ function LoginFormContainer() {
                   exit={{ opacity: 0, height: 0 }}
                   className="rounded-2xl bg-red-500/5 px-4 py-3 text-[0.82rem] font-bold text-red-500"
                 >
-                  Invalid username or password.
+                  Invalid email or password.
                 </motion.p>
               )}
             </AnimatePresence>
